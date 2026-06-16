@@ -17,6 +17,13 @@ npm run dev
 npm run build
 ```
 
+## GitHub Pages
+
+This project includes a GitHub Actions workflow at `.github/workflows/deploy-pages.yml`.
+Pushes to `main` run lint, build the Vite app, and deploy `dist/` to GitHub Pages.
+
+In the repository settings, set Pages source to **GitHub Actions**. The deployed site will use the `/enforge-designs/` base path.
+
 ## Routes
 
 - `/terminal`
