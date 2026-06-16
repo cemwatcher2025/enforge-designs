@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useDiscovery } from './components/useDiscovery'
+import { AssistantApiBridge } from './components/AssistantApiBridge'
 import { TerminalPage } from './routes/TerminalPage'
 import { CorridorPage } from './routes/CorridorPage'
 import { KimPage } from './routes/KimPage'
@@ -55,6 +56,7 @@ function VisitTracker() {
 export default function App() {
   return (
     <>
+      <AssistantApiBridge />
       <VisitTracker />
       <Routes>
         <Route path="/" element={<Navigate to="/terminal" replace />} />
