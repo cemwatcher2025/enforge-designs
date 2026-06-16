@@ -1,0 +1,18 @@
+export const routes = {
+  terminal: '/terminal',
+  corridor: '/corridor',
+  kim: '/kim',
+  desktop: '/desktop',
+  library: '/library',
+  observatory: '/observatory',
+  elevator: '/elevator',
+  archive: '/archive',
+  aquarium: '/aquarium',
+  radio: '/radio',
+  train: '/train-station',
+  gallery: '/gallery',
+  machine: '/machine',
+  mirror: '/mirror',
+  waiting: '/waiting-room',
+  dream: '/dream',
+} as const
