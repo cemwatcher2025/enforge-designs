@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { DraggableIcon } from '../components/DraggableIcon'
 import { RetroWindow } from '../components/RetroWindow'
 import { useDiscovery } from '../components/useDiscovery'
+import { iconForDesktopItem } from '../utils/roomIcons'
 
 export function DesktopPage() {
   const navigate = useNavigate()
@@ -41,13 +42,13 @@ export function DesktopPage() {
           <DraggableIcon
             key={name}
             label={name}
-            icon={name === 'Recycle Bin' ? 'bin' : name === 'Dial-Up' ? 'net' : 'file'}
+            icon={iconForDesktopItem(name)}
             onOpen={() => openIcon(name)}
             draggable={name === 'Documents'}
             onDragStart={() => setExitVisible(true)}
           />
         ))}
-        {(exitVisible || hiddenIcons) && <DraggableIcon label="Exit.exe" icon="run" onOpen={() => navigate('/elevator')} />}
+        {(exitVisible || hiddenIcons) && <DraggableIcon label="Exit.exe" icon="door" onOpen={() => navigate('/elevator')} />}
       </div>
 
       <RetroWindow title={windowName}>

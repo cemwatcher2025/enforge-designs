@@ -26,6 +26,337 @@ button {
   cursor: pointer;
 }
 
+.artifact-icon {
+  --artifact-size: 34px;
+  --artifact-a: #d5ffdc;
+  --artifact-b: #4cbf78;
+  --artifact-c: #122a1b;
+  width: var(--artifact-size);
+  height: var(--artifact-size);
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.32));
+  perspective: 120px;
+  vertical-align: middle;
+}
+
+.artifact-sm {
+  --artifact-size: 22px;
+}
+
+.artifact-lg {
+  --artifact-size: 46px;
+}
+
+.artifact-shape,
+.artifact-shape::before,
+.artifact-shape::after {
+  content: "";
+  display: block;
+  position: absolute;
+}
+
+.artifact-shape {
+  position: relative;
+  width: 72%;
+  height: 72%;
+  transform: rotateX(14deg) rotateZ(-8deg);
+  transform-style: preserve-3d;
+}
+
+.artifact-crt .artifact-shape {
+  width: 78%;
+  height: 54%;
+  border: 2px solid #8dfca2;
+  border-radius: 5px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(125, 255, 136, 0.78), transparent 28%),
+    linear-gradient(135deg, #08280f, #020705);
+  box-shadow: inset 0 0 12px rgba(125, 255, 136, 0.45), 5px 5px 0 #122a1b;
+}
+
+.artifact-crt .artifact-shape::before {
+  left: 28%;
+  right: 28%;
+  bottom: -9px;
+  height: 7px;
+  background: #758478;
+  box-shadow: 0 6px 0 #2d332f;
+}
+
+.artifact-door .artifact-shape {
+  border-radius: 4px;
+  background: linear-gradient(120deg, #8f6140, #2a1710);
+  box-shadow: inset -6px 0 0 rgba(0, 0, 0, 0.28), 6px 7px 0 #170c08;
+}
+
+.artifact-door .artifact-shape::before {
+  right: 18%;
+  top: 48%;
+  width: 12%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ffd36a;
+}
+
+.artifact-eye .artifact-shape {
+  width: 82%;
+  height: 52%;
+  border-radius: 80% 20% 80% 20%;
+  background: linear-gradient(135deg, #eaf7ff, #5eb3d8);
+  box-shadow: inset 0 0 10px rgba(11, 47, 68, 0.32), 5px 5px 0 #0a2634;
+  transform: rotateX(14deg) rotateZ(45deg);
+}
+
+.artifact-eye .artifact-shape::before {
+  inset: 25%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #051016 0 32%, #7dff88 33% 55%, #062719 56%);
+}
+
+.artifact-folder .artifact-shape,
+.artifact-file .artifact-shape {
+  border-radius: 4px;
+  background: linear-gradient(135deg, #f3d174, #9c6d28);
+  box-shadow: 6px 7px 0 #4a3114;
+}
+
+.artifact-folder .artifact-shape::before {
+  left: 5%;
+  top: -16%;
+  width: 44%;
+  height: 24%;
+  border-radius: 4px 4px 0 0;
+  background: #ffe28b;
+}
+
+.artifact-file .artifact-shape {
+  background: linear-gradient(135deg, #f4edd5, #9ca895);
+}
+
+.artifact-file .artifact-shape::before {
+  top: 12%;
+  left: 18%;
+  right: 18%;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 7px 0 rgba(0, 0, 0, 0.25), 0 14px 0 rgba(0, 0, 0, 0.18);
+}
+
+.artifact-book .artifact-shape {
+  border-radius: 4px 7px 7px 4px;
+  background: linear-gradient(90deg, #4a1020 0 18%, #8f2442 19% 100%);
+  box-shadow: 6px 7px 0 #210710;
+}
+
+.artifact-book .artifact-shape::before {
+  right: 10%;
+  top: 12%;
+  bottom: 12%;
+  width: 9%;
+  background: rgba(255, 224, 150, 0.72);
+}
+
+.artifact-star .artifact-shape {
+  background: linear-gradient(135deg, #fff5a1, #d7982c);
+  clip-path: polygon(50% 0, 62% 34%, 98% 35%, 69% 56%, 79% 92%, 50% 70%, 21% 92%, 31% 56%, 2% 35%, 38% 34%);
+  box-shadow: 4px 5px 0 #5f3c0c;
+}
+
+.artifact-fish .artifact-shape {
+  width: 80%;
+  height: 46%;
+  border-radius: 60% 45% 45% 60%;
+  background: linear-gradient(135deg, #a9e58f, #2c8475);
+  box-shadow: 5px 6px 0 #123a36;
+}
+
+.artifact-fish .artifact-shape::before {
+  right: -22%;
+  top: 14%;
+  width: 34%;
+  height: 72%;
+  background: #2c8475;
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+}
+
+.artifact-fish .artifact-shape::after {
+  left: 18%;
+  top: 34%;
+  width: 10%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #061514;
+}
+
+.artifact-radio .artifact-shape,
+.artifact-modem .artifact-shape {
+  border-radius: 7px;
+  background: linear-gradient(135deg, #d5c07a, #4c4030);
+  box-shadow: 6px 7px 0 #19140f;
+}
+
+.artifact-radio .artifact-shape::before {
+  left: 14%;
+  top: 28%;
+  width: 35%;
+  height: 35%;
+  border-radius: 50%;
+  border: 3px solid #1e1710;
+}
+
+.artifact-radio .artifact-shape::after,
+.artifact-modem .artifact-shape::after {
+  right: 14%;
+  top: 22%;
+  width: 22%;
+  height: 8%;
+  background: #7dff88;
+  box-shadow: 0 9px 0 #7dff88, 0 18px 0 #7dff88;
+}
+
+.artifact-modem .artifact-shape::before {
+  left: 14%;
+  bottom: 18%;
+  width: 44%;
+  height: 10%;
+  background: #222;
+}
+
+.artifact-valve .artifact-shape {
+  border: 7px solid #b43c29;
+  border-radius: 50%;
+  box-shadow: 5px 5px 0 #35100b;
+}
+
+.artifact-valve .artifact-shape::before {
+  left: 50%;
+  top: -20%;
+  width: 12%;
+  height: 140%;
+  transform: translateX(-50%) rotate(45deg);
+  background: #d96b58;
+}
+
+.artifact-mirror .artifact-shape {
+  border-radius: 45% 45% 8px 8px;
+  background: linear-gradient(135deg, #e8fbff, #47748a 50%, #f7ffff);
+  box-shadow: 5px 6px 0 #18313d;
+}
+
+.artifact-mirror .artifact-shape::before {
+  inset: 18%;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.74);
+}
+
+.artifact-clock .artifact-shape {
+  border: 5px solid #2d2a24;
+  border-radius: 50%;
+  background: #eee9d9;
+  box-shadow: 5px 7px 0 rgba(0, 0, 0, 0.38);
+}
+
+.artifact-clock .artifact-shape::before,
+.artifact-clock .artifact-shape::after {
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  background: #2d2a24;
+  transform-origin: 50% 0;
+}
+
+.artifact-clock .artifact-shape::before {
+  height: 32%;
+  transform: rotate(20deg);
+}
+
+.artifact-clock .artifact-shape::after {
+  height: 42%;
+  transform: rotate(170deg);
+}
+
+.artifact-ticket .artifact-shape {
+  border-radius: 5px;
+  background: linear-gradient(135deg, #ffe7a2, #b47831);
+  box-shadow: 5px 6px 0 #4a2d10;
+  transform: rotateX(14deg) rotateZ(8deg);
+}
+
+.artifact-ticket .artifact-shape::before {
+  top: 18%;
+  bottom: 18%;
+  left: 48%;
+  border-left: 2px dashed rgba(0, 0, 0, 0.45);
+}
+
+.artifact-key .artifact-shape {
+  width: 82%;
+  height: 22%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe28b, #a56a21);
+  box-shadow: 5px 5px 0 #3a2208;
+}
+
+.artifact-key .artifact-shape::before {
+  left: -15%;
+  top: -70%;
+  width: 42%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 6px solid #d49a34;
+}
+
+.artifact-key .artifact-shape::after {
+  right: 0;
+  top: 90%;
+  width: 14%;
+  height: 65%;
+  background: #a56a21;
+  box-shadow: -10px 0 0 #a56a21;
+}
+
+.artifact-zipper .artifact-shape {
+  width: 22%;
+  height: 88%;
+  border-radius: 999px;
+  background: repeating-linear-gradient(0deg, #e7d17f 0 4px, #312715 5px 9px);
+  box-shadow: 5px 5px 0 #17100b;
+}
+
+.artifact-zipper .artifact-shape::before {
+  left: -85%;
+  bottom: -10%;
+  width: 270%;
+  height: 24%;
+  border-radius: 4px;
+  background: #d3b96b;
+}
+
+.artifact-apple .artifact-shape {
+  border-radius: 48% 52% 56% 44%;
+  background: linear-gradient(135deg, #d94852, #5b0d1c);
+  box-shadow: 5px 7px 0 #26060d;
+}
+
+.artifact-apple .artifact-shape::before {
+  left: 48%;
+  top: -18%;
+  width: 12%;
+  height: 28%;
+  background: #5a371d;
+}
+
+.artifact-apple .artifact-shape::after {
+  left: 54%;
+  top: -10%;
+  width: 38%;
+  height: 22%;
+  border-radius: 100% 0;
+  background: #77b767;
+}
+
 .invert-world {
   filter: invert(1) hue-rotate(180deg);
 }
@@ -43,6 +374,9 @@ button {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .subtle-return {
@@ -336,14 +670,12 @@ button {
   gap: 4px;
 }
 
-.desktop-icon span {
-  width: 40px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  background: #d6d2c7;
-  color: #111;
-  border: 2px outset #fff;
+.desktop-icon > .artifact-icon {
+  width: 52px;
+  height: 50px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 2px outset rgba(255, 255, 255, 0.65);
 }
 
 .desktop-icon:hover {
@@ -410,11 +742,20 @@ button {
   writing-mode: vertical-rl;
   background: #6b1f2d;
   color: #f4d8ac;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .book.wide {
   height: 300px;
   background: #193d4d;
+}
+
+.book .artifact-icon {
+  writing-mode: horizontal-tb;
+  margin-block: 8px;
 }
 
 .book-page {
@@ -495,6 +836,13 @@ button {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
   gap: 10px;
+}
+
+.cabinet-grid button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .archive-page {
@@ -797,6 +1145,10 @@ button {
   background: rgba(255, 255, 255, 0.13);
   color: #fff;
   animation: drift 7s ease-in-out infinite alternate;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
 }
 
 .symbol-0 { left: 8%; top: 14%; }
