@@ -1114,16 +1114,81 @@ button {
 .fish {
   position: absolute;
   left: -120px;
-  padding: 8px 20px;
-  border-radius: 50%;
-  background: #9bca8a;
-  color: #09200e;
+  width: clamp(96px, 14vw, 150px);
+  height: clamp(40px, 5.8vw, 62px);
+  color: #08231e;
   animation: swim 16s linear infinite;
+  filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.18));
 }
 
 .fish-one { top: 28%; }
 .fish-two { top: 44%; animation-delay: 4s; }
 .fish-three { top: 60%; animation-delay: 8s; }
+
+.fish-body {
+  position: absolute;
+  inset: 10% 0 8% 18%;
+  border-radius: 62% 42% 46% 58% / 54% 46% 54% 46%;
+  background:
+    radial-gradient(circle at 76% 38%, #061514 0 5%, transparent 6%),
+    radial-gradient(circle at 30% 38%, rgba(255, 255, 255, 0.42), transparent 12%),
+    linear-gradient(135deg, #d1ef9f, #5fbf91 48%, #237a72);
+  box-shadow:
+    inset -10px -7px 0 rgba(7, 48, 52, 0.22),
+    inset 12px 10px 0 rgba(255, 255, 255, 0.12);
+}
+
+.fish-tail {
+  position: absolute;
+  left: 0;
+  top: 18%;
+  width: 32%;
+  height: 64%;
+  background: linear-gradient(135deg, #76d790, #238779);
+  clip-path: polygon(100% 50%, 0 0, 24% 50%, 0 100%);
+  transform-origin: right center;
+  animation: tailBeat 640ms ease-in-out infinite alternate;
+}
+
+.fish-fin {
+  position: absolute;
+  left: 38%;
+  width: 24%;
+  height: 32%;
+  background: rgba(151, 230, 152, 0.82);
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+
+.fish-fin-top {
+  top: -3%;
+  transform: rotate(6deg);
+}
+
+.fish-fin-bottom {
+  bottom: -5%;
+  transform: rotate(180deg);
+}
+
+.fish-word {
+  position: absolute;
+  left: 22%;
+  top: 50%;
+  transform: translateY(-50%);
+  font: 700 clamp(10px, 1.7vw, 14px) "Courier New", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.58;
+}
+
+.fish-eye {
+  position: absolute;
+  right: 20%;
+  top: 31%;
+  width: 9%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 38%, #fff 0 18%, #061514 19% 100%);
+}
 
 .radio-page {
   background:
@@ -1441,6 +1506,10 @@ button {
 
 @keyframes swim {
   to { transform: translateX(calc(100vw + 220px)); }
+}
+
+@keyframes tailBeat {
+  to { transform: skewX(-12deg) scaleX(0.9); }
 }
 
 @keyframes drift {
