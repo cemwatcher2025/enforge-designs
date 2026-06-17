@@ -3,7 +3,7 @@ import type { ArtifactIconName } from '../components/ArtifactIcon'
 export const roomIcons: Record<string, ArtifactIconName> = {
   terminal: 'crt',
   corridor: 'door',
-  kim: 'eye',
+  kim: 'head',
   desktop: 'folder',
   library: 'book',
   observatory: 'star',
@@ -42,7 +42,8 @@ export function iconForDreamSymbol(symbol: string): ArtifactIconName {
   if (symbol.includes('fish')) return 'fish'
   if (symbol.includes('monitor')) return 'crt'
   if (symbol.includes('book')) return 'book'
-  if (symbol.includes('eye') || symbol.includes('head')) return 'eye'
+  if (symbol.includes('head')) return 'head'
+  if (symbol.includes('eye')) return 'eye'
   if (symbol.includes('ticket')) return 'ticket'
   if (symbol.includes('zipper')) return 'zipper'
   if (symbol.includes('valve')) return 'valve'

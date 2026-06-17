@@ -43,9 +43,21 @@ export function KimPage() {
     <main className="kim-page">
       <button className="subtle-return" type="button" onClick={() => navigate('/corridor')}>corridor</button>
       <section className="wire-head" style={{ transform: `translate(${position.x}px, ${position.y}px)` }}>
-        <div className="head-grid" />
-        <span className="eye left" style={{ transform: `translate(${position.x / 3}px, ${position.y / 3}px)` }} />
-        <span className="eye right" style={{ transform: `translate(${position.x / 3}px, ${position.y / 3}px)` }} />
+        <div className="head-aura" />
+        <div className="head-silhouette">
+          <span className="head-meridian meridian-left" />
+          <span className="head-meridian meridian-center" />
+          <span className="head-meridian meridian-right" />
+          <span className="head-latitude latitude-brow" />
+          <span className="head-latitude latitude-eye" />
+          <span className="head-latitude latitude-mouth" />
+          <span className="head-cheek cheek-left" />
+          <span className="head-cheek cheek-right" />
+          <span className="head-nose" />
+          <span className="eye left" style={{ transform: `translate(${position.x / 3}px, ${position.y / 3}px)` }} />
+          <span className="eye right" style={{ transform: `translate(${position.x / 3}px, ${position.y / 3}px)` }} />
+          <span className="head-mouth" />
+        </div>
       </section>
       <p className="kim-response">{response}</p>
       <form className="kim-input" onSubmit={ask}>
