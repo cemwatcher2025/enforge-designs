@@ -730,12 +730,29 @@ button {
   transform: rotateY(-62deg);
 }
 
+.head-image {
+  position: absolute;
+  z-index: 1;
+  inset: -7% -24% -8%;
+  width: 148%;
+  height: 115%;
+  object-fit: contain;
+  pointer-events: none;
+  opacity: 0.58;
+  mix-blend-mode: screen;
+  filter:
+    saturate(1.12)
+    contrast(1.04)
+    drop-shadow(0 0 18px rgba(125, 199, 255, 0.2));
+}
+
 .head-meridian,
 .head-latitude,
 .head-scan {
   position: absolute;
   display: block;
   pointer-events: none;
+  z-index: 2;
 }
 
 .head-meridian {
@@ -810,18 +827,18 @@ button {
 
 .eye {
   position: absolute;
-  top: 38%;
-  width: clamp(34px, 7.4vw, 50px);
-  height: clamp(18px, 3.4vw, 24px);
+  top: 45%;
+  width: clamp(22px, 5vw, 34px);
+  height: clamp(10px, 2.4vw, 16px);
   border-radius: 50%;
   background:
-    radial-gradient(ellipse at 58% 45%, rgba(255, 255, 255, 0.96) 0 22%, rgba(210, 247, 255, 0.9) 23% 48%, rgba(134, 218, 255, 0.42) 49% 72%, transparent 73%),
-    radial-gradient(ellipse at 50% 50%, rgba(216, 250, 255, 0.72), rgba(134, 218, 255, 0.18) 68%, transparent 70%);
+    radial-gradient(ellipse at 58% 45%, rgba(255, 255, 255, 0.98) 0 18%, rgba(210, 247, 255, 0.9) 19% 38%, rgba(134, 218, 255, 0.32) 39% 64%, transparent 65%),
+    radial-gradient(ellipse at 50% 50%, rgba(216, 250, 255, 0.42), rgba(134, 218, 255, 0.14) 58%, transparent 70%);
   box-shadow:
-    0 0 16px rgba(225, 251, 255, 0.82),
-    0 0 36px rgba(125, 199, 255, 0.28);
+    0 0 12px rgba(225, 251, 255, 0.74),
+    0 0 28px rgba(125, 199, 255, 0.24);
   transition: opacity 900ms ease, filter 900ms ease;
-  z-index: 2;
+  z-index: 3;
   filter: blur(0.15px);
 }
 
@@ -834,8 +851,8 @@ button {
   filter: blur(3px);
 }
 
-.eye.left { left: 25%; }
-.eye.right { right: 25%; }
+.eye.left { left: 28%; }
+.eye.right { right: 28%; }
 
 .kim-response,
 .kim-input {

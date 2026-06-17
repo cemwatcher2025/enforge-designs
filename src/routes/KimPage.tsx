@@ -156,6 +156,7 @@ export function KimPage() {
       >
         <div className="head-aura" />
         <div className="head-silhouette">
+          <img className="head-image" src="/kim/kim-head.png" alt="" />
           <span className="head-meridian meridian-left" />
           <span className="head-meridian meridian-center" />
           <span className="head-meridian meridian-right" />
