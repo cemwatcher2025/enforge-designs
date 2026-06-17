@@ -92,15 +92,15 @@ export function KimPage() {
         else forcedLook.current = null
       }
 
-      const gazeEase = fastUntil.current > now ? 0.36 : idleFor > 15000 ? 0.025 : 0.085
-      const headEase = fastUntil.current > now ? 0.16 : 0.035
+      const gazeEase = fastUntil.current > now ? 0.42 : idleFor > 15000 ? 0.035 : 0.11
+      const headEase = fastUntil.current > now ? 0.2 : 0.048
       gaze.current = {
         x: gaze.current.x + (target.x - gaze.current.x) * gazeEase,
         y: gaze.current.y + (target.y - gaze.current.y) * gazeEase,
       }
       head.current = {
-        x: head.current.x + (target.x * 0.46 - head.current.x) * headEase,
-        y: head.current.y + (target.y * 0.34 - head.current.y) * headEase,
+        x: head.current.x + (target.x * 0.62 - head.current.x) * headEase,
+        y: head.current.y + (target.y * 0.46 - head.current.y) * headEase,
       }
 
       frame += 1
@@ -170,14 +170,14 @@ export function KimPage() {
             className="eye left"
             style={{
               opacity: visual.eyeLight,
-              transform: `translate(${visual.gazeX / 4.8}px, ${visual.gazeY / 5.8}px)`,
+              transform: `translate(${visual.gazeX / 3.8}px, ${visual.gazeY / 4.6}px)`,
             }}
           />
           <span
             className="eye right"
             style={{
               opacity: visual.eyeLight,
-              transform: `translate(${visual.gazeX / 4.8}px, ${visual.gazeY / 5.8}px)`,
+              transform: `translate(${visual.gazeX / 3.8}px, ${visual.gazeY / 4.6}px)`,
             }}
           />
         </div>
