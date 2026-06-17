@@ -15,7 +15,7 @@ export function DesktopPage() {
 
   const content: Record<string, string> = {
     'ReadMe.txt': 'I always save things backwards. rorrim is not an error. The hallway remembers KIM.',
-    'My Computer': 'Drives: C:/ROOMS, A:/DREAM, Z:/FALSE_END',
+    'My Computer': 'Drives: C:/ROOMS, A:/DREAM, E:/ELEVATOR, Z:/FALSE_END',
     Notepad: 'notes: library | stars under water | deleted file returns',
     Paint: 'A crude door has been drawn sideways. One pixel says EXIT.',
     Documents: 'corridor.log: The hallway remembers KIM.',
@@ -33,6 +33,10 @@ export function DesktopPage() {
     else if (term.includes('kim')) navigate('/kim')
     else if (term.includes('stars')) navigate('/observatory')
     else if (term.includes('observer')) discoverCommand('observer')
+    else if (term.includes('elevator') || term.includes('exit')) {
+      discoverCommand('elevator')
+      navigate('/elevator')
+    }
   }
 
   return (

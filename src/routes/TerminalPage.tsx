@@ -24,6 +24,7 @@ export function TerminalPage() {
     const base = ['about', 'explore', 'clear', 'whoami']
     if (state.discoveredCommands.includes('observer')) base.push('observer')
     if (state.discoveredCommands.includes('desktop')) base.push('desktop?')
+    if (state.discoveredCommands.includes('elevator')) base.push('elevator')
     if (state.discoveredCommands.includes('wait')) base.push('wait')
     return base
   }, [state.discoveredCommands])
@@ -53,6 +54,7 @@ export function TerminalPage() {
     else if (command === 'library') go('/library', 'library')
     else if (command === 'mirror') go('/mirror', 'mirror')
     else if (command === 'dream') go('/dream', 'dream')
+    else if (command === 'elevator') go('/elevator', 'elevator')
     else if (command === 'observer') reply(`visited pages: ${state.visitedPages.length}\nfalse end: ${state.falseEndReached ? 'confirmed' : 'unconfirmed'}`)
     else if (command === 'wait') go('/waiting-room', 'wait')
     else if (command === 'reset') {

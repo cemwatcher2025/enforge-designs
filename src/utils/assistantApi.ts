@@ -107,6 +107,7 @@ export function pathForTerminalCommand(command: string) {
     mirror: routes.mirror,
     dream: routes.dream,
     wait: routes.waiting,
+    elevator: routes.elevator,
   }
 
   return commandRoutes[normalized] ?? null
