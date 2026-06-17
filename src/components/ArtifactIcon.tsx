@@ -8,6 +8,7 @@ export type ArtifactIconName =
   | 'file'
   | 'fish'
   | 'folder'
+  | 'head'
   | 'key'
   | 'mirror'
   | 'modem'

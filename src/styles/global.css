@@ -115,6 +115,44 @@ button {
   background: radial-gradient(circle, #051016 0 32%, #7dff88 33% 55%, #062719 56%);
 }
 
+.artifact-head .artifact-shape {
+  width: 66%;
+  height: 82%;
+  border: 2px solid #91d8ff;
+  border-radius: 48% 48% 44% 44%;
+  background:
+    radial-gradient(ellipse at 34% 38%, #dff9ff 0 5%, transparent 6%),
+    radial-gradient(ellipse at 66% 38%, #dff9ff 0 5%, transparent 6%),
+    linear-gradient(90deg, transparent 47%, rgba(145, 216, 255, 0.72) 48% 52%, transparent 53%),
+    repeating-linear-gradient(0deg, transparent 0 8px, rgba(145, 216, 255, 0.38) 9px 10px),
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(145, 216, 255, 0.34) 10px 11px),
+    radial-gradient(ellipse at 50% 38%, rgba(35, 86, 121, 0.86), rgba(4, 13, 23, 0.96) 68%);
+  box-shadow:
+    inset 0 0 12px rgba(145, 216, 255, 0.42),
+    5px 6px 0 #082236,
+    0 0 16px rgba(125, 255, 136, 0.32);
+}
+
+.artifact-head .artifact-shape::before {
+  left: 12%;
+  right: 12%;
+  top: 35%;
+  height: 18%;
+  border-top: 2px solid rgba(255, 211, 106, 0.78);
+  border-bottom: 2px solid rgba(255, 211, 106, 0.46);
+  border-radius: 50%;
+}
+
+.artifact-head .artifact-shape::after {
+  left: 35%;
+  right: 35%;
+  top: 56%;
+  height: 18%;
+  border-right: 2px solid rgba(255, 211, 106, 0.7);
+  border-bottom: 2px solid rgba(255, 211, 106, 0.56);
+  transform: skewX(-8deg);
+}
+
 .artifact-folder .artifact-shape,
 .artifact-file .artifact-shape {
   border-radius: 4px;
@@ -582,34 +620,172 @@ button {
   position: relative;
   width: min(360px, 72vw);
   aspect-ratio: 0.8;
-  border: 2px solid #7dc7ff;
-  border-radius: 46% 46% 52% 52%;
-  box-shadow: 0 0 60px rgba(125, 199, 255, 0.26);
+  display: grid;
+  place-items: center;
+  perspective: 820px;
   transition: transform 700ms ease-out;
 }
 
-.head-grid {
+.head-aura {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
+  inset: -18%;
+  border-radius: 50%;
   background:
-    repeating-linear-gradient(0deg, transparent 0 28px, rgba(125,199,255,0.3) 29px 30px),
-    repeating-linear-gradient(90deg, transparent 0 28px, rgba(125,199,255,0.3) 29px 30px);
+    radial-gradient(ellipse at 50% 42%, rgba(125, 255, 136, 0.24), transparent 30%),
+    radial-gradient(ellipse at 50% 50%, rgba(125, 199, 255, 0.3), transparent 48%);
+  filter: blur(8px);
+  opacity: 0.88;
+  animation: kimPulse 4s ease-in-out infinite;
+}
+
+.head-silhouette {
+  position: relative;
+  width: 86%;
+  height: 94%;
+  border: 2px solid #7dc7ff;
+  border-radius: 48% 48% 42% 42%;
+  background:
+    radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.13), transparent 20%),
+    radial-gradient(ellipse at 50% 54%, rgba(13, 41, 68, 0.78), rgba(2, 4, 10, 0.32) 64%, transparent 65%),
+    linear-gradient(120deg, rgba(125, 199, 255, 0.12), rgba(125, 255, 136, 0.04));
+  box-shadow:
+    inset 0 0 34px rgba(125, 199, 255, 0.3),
+    inset 22px 0 34px rgba(255, 255, 255, 0.04),
+    inset -28px 0 34px rgba(0, 0, 0, 0.24),
+    0 0 60px rgba(125, 199, 255, 0.28),
+    34px 36px 70px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  transform: rotateX(8deg) rotateY(-10deg) rotateZ(-1deg);
+  transform-style: preserve-3d;
+}
+
+.head-silhouette::before,
+.head-silhouette::after {
+  content: "";
+  position: absolute;
+  inset: 5% 10%;
+  border-radius: 50%;
+  border: 1px solid rgba(125, 199, 255, 0.34);
+  pointer-events: none;
+}
+
+.head-silhouette::before {
+  transform: rotateY(62deg);
+  box-shadow: 0 0 18px rgba(125, 199, 255, 0.16);
+}
+
+.head-silhouette::after {
+  transform: rotateY(-62deg);
+}
+
+.head-meridian,
+.head-latitude,
+.head-cheek,
+.head-nose,
+.head-mouth {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.head-meridian {
+  top: 4%;
+  bottom: 3%;
+  border: 1px solid rgba(125, 199, 255, 0.42);
+  border-left: 0;
+  border-bottom: 0;
+  border-radius: 50%;
+}
+
+.meridian-left {
+  left: 12%;
+  width: 43%;
+  transform: rotateY(52deg);
+}
+
+.meridian-center {
+  left: 49%;
+  width: 2px;
+  border-radius: 0;
+  background: linear-gradient(transparent, rgba(125, 199, 255, 0.7), transparent);
+  border: 0;
+}
+
+.meridian-right {
+  right: 12%;
+  width: 43%;
+  transform: rotateY(-52deg) scaleX(-1);
+}
+
+.head-latitude {
+  left: 7%;
+  right: 7%;
+  height: 16%;
+  border: 1px solid rgba(125, 199, 255, 0.44);
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 50%;
+}
+
+.latitude-brow { top: 24%; }
+.latitude-eye { top: 41%; }
+.latitude-mouth { top: 61%; }
+
+.head-cheek {
+  top: 43%;
+  width: 27%;
+  height: 34%;
+  border: 1px solid rgba(255, 211, 106, 0.44);
+  border-top: 0;
+  border-radius: 0 0 50% 50%;
+}
+
+.cheek-left {
+  left: 15%;
+  transform: rotate(10deg);
+}
+
+.cheek-right {
+  right: 15%;
+  transform: rotate(-10deg);
+}
+
+.head-nose {
+  left: 47%;
+  top: 43%;
+  width: 9%;
+  height: 22%;
+  border-right: 2px solid rgba(255, 211, 106, 0.7);
+  border-bottom: 2px solid rgba(255, 211, 106, 0.55);
+  border-radius: 0 0 60% 0;
+  transform: skewX(-8deg);
+}
+
+.head-mouth {
+  left: 36%;
+  top: 73%;
+  width: 28%;
+  height: 8%;
+  border-bottom: 2px solid rgba(255, 211, 106, 0.74);
+  border-radius: 0 0 50% 50%;
 }
 
 .eye {
   position: absolute;
-  top: 38%;
-  width: 44px;
-  height: 20px;
+  top: 39%;
+  width: clamp(28px, 7vw, 44px);
+  height: clamp(14px, 3.1vw, 20px);
   border-radius: 50%;
-  background: #f7fffb;
-  box-shadow: 0 0 20px #f7fffb;
+  background:
+    radial-gradient(circle at 58% 45%, #061514 0 19%, #7dff88 20% 42%, #f7fffb 43%);
+  box-shadow: 0 0 20px #f7fffb, 0 0 40px rgba(125, 255, 136, 0.32);
   transition: transform 300ms ease-out;
+  z-index: 2;
 }
 
-.eye.left { left: 28%; }
-.eye.right { right: 28%; }
+.eye.left { left: 27%; }
+.eye.right { right: 27%; }
 
 .kim-response,
 .kim-input {
@@ -1177,6 +1353,13 @@ button {
 
 @keyframes drift {
   to { transform: translateY(-24px) rotate(4deg); }
+}
+
+@keyframes kimPulse {
+  50% {
+    opacity: 0.58;
+    transform: scale(1.04);
+  }
 }
 
 @media (max-width: 720px) {
