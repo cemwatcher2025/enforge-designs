@@ -678,47 +678,26 @@ button {
 }
 
 .head-aura {
-  position: absolute;
-  inset: -16%;
-  border-radius: 50%;
-  background:
-    radial-gradient(ellipse at 50% 42%, rgba(207, 247, 255, 0.16), transparent 30%),
-    radial-gradient(ellipse at 50% 50%, rgba(125, 199, 255, 0.24), transparent 50%);
-  filter: blur(10px);
-  opacity: 0.72;
-  animation: kimPulse 7s ease-in-out infinite;
+  display: none;
 }
 
 .head-silhouette {
   position: relative;
   width: 76%;
   height: 96%;
-  border: 1px solid rgba(159, 224, 255, 0.92);
+  border: 0;
   border-radius: 44% 44% 39% 39% / 37% 37% 48% 48%;
-  background:
-    radial-gradient(ellipse at 50% 29%, rgba(222, 248, 255, 0.13), transparent 22%),
-    radial-gradient(ellipse at 50% 55%, rgba(13, 41, 68, 0.48), rgba(2, 4, 10, 0.2) 66%, transparent 67%),
-    linear-gradient(120deg, rgba(125, 199, 255, 0.08), rgba(206, 248, 255, 0.04));
-  box-shadow:
-    inset 0 0 30px rgba(125, 199, 255, 0.24),
-    inset 18px 0 34px rgba(255, 255, 255, 0.035),
-    inset -24px 0 34px rgba(0, 0, 0, 0.2),
-    0 0 48px rgba(125, 199, 255, 0.24),
-    22px 32px 64px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
   transform: rotateX(7deg) rotateY(-7deg);
   transform-style: preserve-3d;
-  animation: wirePulse 9s ease-in-out infinite;
+  animation: none;
 }
 
 .head-silhouette::before,
 .head-silhouette::after {
-  content: "";
-  position: absolute;
-  inset: 5% 10%;
-  border-radius: 50%;
-  border: 1px solid rgba(125, 199, 255, 0.34);
-  pointer-events: none;
+  display: none;
 }
 
 .head-silhouette::before {
@@ -753,6 +732,7 @@ button {
   display: block;
   pointer-events: none;
   z-index: 2;
+  opacity: 0;
 }
 
 .head-meridian {
@@ -827,7 +807,7 @@ button {
 
 .eye {
   position: absolute;
-  top: 45%;
+  top: calc(45% + clamp(5px, 1.2vw, 8px));
   width: clamp(22px, 5vw, 34px);
   height: clamp(10px, 2.4vw, 16px);
   border-radius: 50%;
@@ -851,8 +831,8 @@ button {
   filter: blur(3px);
 }
 
-.eye.left { left: 28%; }
-.eye.right { right: 28%; }
+.eye.left { left: calc(28% - clamp(8.25px, 1.875vw, 12.75px)); }
+.eye.right { right: calc(28% - clamp(2.75px, 0.625vw, 4.25px)); }
 
 .kim-response,
 .kim-input {
