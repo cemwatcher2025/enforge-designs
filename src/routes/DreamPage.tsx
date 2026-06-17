@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RoomChrome } from '../components/RoomChrome'
 import { useDiscovery } from '../components/useDiscovery'
+import { ArtifactIcon } from '../components/ArtifactIcon'
+import { iconForDreamSymbol } from '../utils/roomIcons'
 
 const symbols = [
   ['apple', '/gallery'],
@@ -35,10 +37,11 @@ export function DreamPage() {
           <button
             key={symbol}
             className={`dream-symbol symbol-${index}`}
-            type="button"
-            onClick={() => choose(symbol, path)}
-          >
-            {symbol}
+          type="button"
+          onClick={() => choose(symbol, path)}
+        >
+            <ArtifactIcon name={iconForDreamSymbol(symbol)} size="lg" />
+            <span>{symbol}</span>
           </button>
         ))}
       </section>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RoomChrome } from '../components/RoomChrome'
 import { useDiscovery } from '../components/useDiscovery'
+import { ArtifactIcon } from '../components/ArtifactIcon'
 
 const files: Record<string, string> = {
   K: 'KIM-001: Unauthorized command detected.',
@@ -29,7 +30,10 @@ export function ArchivePage() {
     <RoomChrome room="archive" className="archive-page">
       <section className="cabinet-grid">
         {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => (
-          <button key={letter} type="button" onClick={() => drawer(letter)}>{letter}</button>
+          <button key={letter} type="button" onClick={() => drawer(letter)}>
+            <ArtifactIcon name={['K', 'C', 'D', 'A', 'O', 'R', 'W', 'T'].includes(letter) ? 'file' : 'folder'} size="sm" />
+            {letter}
+          </button>
         ))}
       </section>
       <article className="file-card">

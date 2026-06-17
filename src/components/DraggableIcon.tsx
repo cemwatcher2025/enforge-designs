@@ -1,8 +1,8 @@
-import { type ReactNode } from 'react'
+import { ArtifactIcon, type ArtifactIconName } from './ArtifactIcon'
 
 type DraggableIconProps = {
   label: string
-  icon: ReactNode
+  icon: ArtifactIconName
   onOpen: () => void
   draggable?: boolean
   onDragStart?: () => void
@@ -24,7 +24,7 @@ export function DraggableIcon({
       onDoubleClick={onOpen}
       onDragStart={onDragStart}
     >
-      <span>{icon}</span>
+      <ArtifactIcon name={icon} size="lg" />
       <small>{label}</small>
     </button>
   )

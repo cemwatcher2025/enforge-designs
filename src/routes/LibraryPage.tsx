@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RoomChrome } from '../components/RoomChrome'
+import { ArtifactIcon } from '../components/ArtifactIcon'
 
 const shelf = ['A', 'R', 'C', 'H', 'I', 'V', 'E']
 
@@ -14,11 +15,13 @@ export function LibraryPage() {
       <section className="shelves">
         {shelf.map((letter) => (
           <button key={letter} className="book" type="button" onClick={() => setOrder((value) => value + letter)}>
+            <ArtifactIcon name="book" size="sm" />
             {letter}
           </button>
         ))}
         {['The Stars Are Filed Under Water', 'Still Life With Deleted File', 'Index of Sideways Doors'].map((title) => (
           <button className="book wide" key={title} type="button" onClick={() => setPulled(title)}>
+            <ArtifactIcon name={title.includes('Stars') ? 'star' : title.includes('Deleted') ? 'file' : 'door'} size="sm" />
             {title}
           </button>
         ))}

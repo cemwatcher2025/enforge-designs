@@ -4,6 +4,8 @@ A strange interactive puzzle-box website built with React, Vite, TypeScript, and
 
 This is a mysterious digital place somewhere between a 90s terminal, an escape room, an ARG, a dream, and a haunted operating system. It includes sixteen interconnected rooms, hidden terminal commands, localStorage-backed discovery state, and page-specific interactions.
 
+The visual system uses lightweight CSS-built artifact icons for room labels, desktop objects, archive drawers, books, and dream symbols. No external 3D icon package or paid asset source is required.
+
 ## Setup
 
 ```bash
