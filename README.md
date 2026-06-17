@@ -24,7 +24,25 @@ npm run build
 This project includes a GitHub Actions workflow at `.github/workflows/deploy-pages.yml`.
 Pushes to `main` run lint, build the Vite app, and deploy `dist/` to GitHub Pages.
 
-In the repository settings, set Pages source to **GitHub Actions**. The deployed site will use the `/enforge-designs/` base path.
+In the repository settings, set Pages source to **GitHub Actions**.
+
+The production deployment is configured for the custom domain `enforgedesigns.com`. The Pages build sets Vite's base path to `/`, and `public/CNAME` records the intended domain in the repository. Because this project deploys with a custom GitHub Actions workflow, the custom domain still needs to be set in the repository's Pages settings.
+
+To finish connecting the domain:
+
+1. In GitHub, open **Settings > Pages** for `cemwatcher2025/enforge-designs`.
+2. Set **Custom domain** to `enforgedesigns.com`.
+3. At the DNS provider for `enforgedesigns.com`, add the GitHub Pages apex `A` records:
+
+```text
+185.199.108.153
+185.199.109.153
+185.199.110.153
+185.199.111.153
+```
+
+4. Add a `CNAME` record for `www` pointing to `cemwatcher2025.github.io`.
+5. After DNS verifies in GitHub Pages, enable **Enforce HTTPS**.
 
 ## Routes
 
