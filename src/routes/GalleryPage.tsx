@@ -4,10 +4,10 @@ import { RoomChrome } from '../components/RoomChrome'
 import { useDiscovery } from '../components/useDiscovery'
 
 const paintings = [
-  ['1995', 'The Corridor Remembers', '/corridor'],
-  ['1998', 'Still Life with Deleted File', '/desktop'],
-  ['2001', 'Portrait of K.I.M.', '/kim'],
-  ['2003', 'The Door That Opens Sideways', '/mirror'],
+  ['1995', 'The Corridor Remembers', '/gallery/corridor-remembers.png'],
+  ['1998', 'Still Life with Deleted File', '/gallery/deleted-file.png'],
+  ['2001', 'Portrait of K.I.M.', '/gallery/kim-portrait.png'],
+  ['2003', 'The Door That Opens Sideways', '/gallery/sideways-door.png'],
 ] as const
 
 export function GalleryPage() {
@@ -18,20 +18,15 @@ export function GalleryPage() {
   return (
     <RoomChrome room="art gallery" className="gallery-page">
       <section className="gallery-wall">
-        {paintings.map(([date, title, path]) => (
+        {paintings.map(([date, title, image]) => (
           <button
             key={title}
             className="painting"
             onMouseEnter={() => title.includes('K.I.M.') && discoverCommand('kim')}
-            onClick={() => {
-              setSequence((value) => {
-                const next = value + date.slice(-1)
-                if (title.includes('Sideways') && !next.includes('5813')) navigate(path)
-                return next
-              })
-            }}
+            onClick={() => setSequence((value) => (value + date.slice(-1)).slice(-8))}
             type="button"
           >
+            <img src={image} alt="" />
             <span>{title}</span>
             <small>{date}</small>
           </button>
