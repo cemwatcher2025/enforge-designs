@@ -17,7 +17,7 @@ export function MachineRoomPage() {
         <label><input type="checkbox" checked={state.machineSettings.waterValve} onChange={(event) => setMachineSetting('waterValve', event.target.checked)} /> Water Valve</label>
         <label><input type="checkbox" checked={state.machineSettings.corridorLights} onChange={(event) => setMachineSetting('corridorLights', event.target.checked)} /> Corridor Light Switch</label>
         <label>Signal Dial <input type="range" min="1" max="110" step="0.1" value={state.machineSettings.signal} onChange={(event) => setMachineSetting('signal', Number(event.target.value))} /></label>
-        <label><input type="checkbox" onChange={(event) => setMachineSetting('archiveCompressed', event.target.checked)} /> Archive Compressor</label>
+        <label><input type="checkbox" checked={state.machineSettings.archiveCompressed} onChange={(event) => setMachineSetting('archiveCompressed', event.target.checked)} /> Archive Compressor</label>
         <div className="levers">
           <button onClick={() => setLeverA((value) => !value)} type="button">I</button>
           <button onClick={() => setLeverB((value) => !value)} type="button">II</button>

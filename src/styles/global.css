@@ -1163,6 +1163,27 @@ button {
   color: #211d16;
 }
 
+.cheat-sheet {
+  max-height: 46vh;
+  overflow: auto;
+  padding-right: 8px;
+}
+
+.cheat-sheet p {
+  margin-top: 0;
+  font-family: "Courier New", monospace;
+}
+
+.cheat-sheet ol {
+  margin: 16px 0 0;
+  padding-left: 24px;
+}
+
+.cheat-sheet li {
+  margin-bottom: 10px;
+  line-height: 1.35;
+}
+
 .aquarium-page {
   background:
     radial-gradient(circle at 30% 22%, rgba(161, 240, 255, 0.22), transparent 20%),
