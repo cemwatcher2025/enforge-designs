@@ -8,14 +8,14 @@ This README is the project manifest. Read it at the start of each task to stay a
 
 Active project: Enforge Command Center
 
-Current phase: Phase 2 active
+Current phase: Phase 3 active
 
 Build order:
 
 1. Phase 1: Logistics Dashboard + Communications Hub - shipped
-2. Phase 2: Coding Sandbox + Documents - active / initial panels shipped
-3. Phase 3: 3D Viewer + Ministry Panel
-4. Phase 4: Settings bar, usage tracking dashboard, README integration
+2. Phase 2: Coding Sandbox + Documents - shipped
+3. Phase 3: Communications Hub wiring + Admin Panel - active / initial controls shipped
+4. Phase 4: 3D Viewer + Ministry Panel
 
 ## Recent Decisions
 
@@ -28,6 +28,8 @@ Build order:
 - Do not commit API tokens, bearer tokens, or private keys to this repository.
 - Public GitHub Pages frontend code must call secure backend proxies or approved webhook endpoints, not private service APIs directly with embedded secrets.
 - Phase 2 should remain utility-focused: repository launch cards, active project selection, document index, and read-only deploy status.
+- Phase 3 admin changes use browser `localStorage` only. No backend database or public write token is committed.
+- Gmail and Google Calendar panels use safe link-out/deep-link behavior until a real OAuth-backed connector exists.
 
 ## Active Panels
 
@@ -62,7 +64,9 @@ Phase 1 status:
 - UI shell built.
 - Quick-reply draft box built.
 - Local usage logging built.
-- Sending/reply actions disabled until connectors are configured.
+- Gmail Inbox, Compose, and Google Calendar deep links built.
+- Gmail and Calendar connection indicators built.
+- Live unread email and next-event data are placeholders until a Google OAuth or backend connector is added.
 
 ### Coding Sandbox
 
@@ -82,11 +86,23 @@ Phase 2 status:
 - Searchable client-side document index shipped.
 - Key doc link shipped for the Enforge Command Center Build Spec.
 - Documents open in a new tab instead of embedding Google Docs inline.
-- Additional docs can be added through the `documentLinks` config array in `src/App.tsx`.
+- Additional docs can be added through the Admin Panel or the default config in `src/config.ts`.
+
+### Admin Panel
+
+Phase 3 status:
+
+- Admin panel is accessible from the dashboard settings control and `/admin`.
+- Panel visibility toggles shipped for Dashboard, Comms Hub, Coding Sandbox, Documents, Settings, 3D Sandbox, and Ministry.
+- Simple up/down panel ordering shipped.
+- Theme toggle shipped with dark/light persistence.
+- API endpoint label editing shipped for ClearBid, Ministry Companion, and KIM.
+- Project card and document link add/remove/edit controls shipped.
+- Admin config saves to browser `localStorage`.
 
 ## Future Panels
 
-### 3D Viewer
+### 3D Viewer / 3D Sandbox
 
 Planned:
 
@@ -222,7 +238,8 @@ VITE_USAGE_LOG_ENDPOINT=${{ secrets.VITE_USAGE_LOG_ENDPOINT }}
 
 ## Next Actions
 
+- Add a real Gmail/Calendar backend connector if live unread emails and live calendar events are required inside the dashboard.
+- Consider adding a GitHub Pages SPA fallback if direct refreshes on `/admin` need to work reliably.
 - Confirm final ClearBid and KIM source repo links if they exist outside the visible `cemwatcher2025` public repos.
 - Add ROAM project link when the Unreal project location is ready.
-- Add more document links to `documentLinks` as specs, plans, and meeting notes accumulate.
-- Build Phase 3 panels after Phase 2 workflow links are stable.
+- Add more document links through the Admin Panel as specs, plans, and meeting notes accumulate.

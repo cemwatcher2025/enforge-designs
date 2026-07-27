@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { AdminPanel } from './components/AdminPanel'
+import { CommsHub } from './components/CommsHub'
+import { defaultAdminConfig, type Accent, type AdminConfig, type PanelId, type ServiceState } from './config'
 import { fetchDashboardData, type DashboardData } from './utils/commandCenterApi'
 import { logUsage, readUsageLog } from './utils/usageTracking'
 
-type ServiceState = 'online' | 'pending' | 'offline'
+const configStorageKey = 'enforge-admin-config'
 
 type Service = {
   id: string
@@ -16,14 +19,7 @@ type LogisticsMetric = {
   label: string
   value: string
   detail: string
-  accent: 'cyan' | 'magenta' | 'lime' | 'orange'
-}
-
-type Message = {
-  source: string
-  subject: string
-  status: string
-  age: string
+  accent: Accent
 }
 
 type UsageRow = {
@@ -31,15 +27,6 @@ type UsageRow = {
   calls: number
   cost: string
   successRate: string
-}
-
-type ProjectLink = {
-  id: string
-  name: string
-  type: 'GitHub' | 'Replit' | 'Placeholder'
-  href: string
-  status: string
-  detail: string
 }
 
 type ActionRun = {
@@ -54,14 +41,6 @@ type ActionRun = {
 
 type ActionsResponse = {
   workflow_runs?: ActionRun[]
-}
-
-type DocumentLink = {
-  id: string
-  title: string
-  href: string
-  tags: string[]
-  detail: string
 }
 
 const services: Service[] = [
@@ -113,13 +92,6 @@ function metricsFromDashboard(data: DashboardData | null): LogisticsMetric[] {
   ]
 }
 
-const messages: Message[] = [
-  { source: 'Email', subject: 'Unread inbox count', status: 'Waiting on Gmail connector', age: 'pending' },
-  { source: 'Slack', subject: 'Message triage', status: 'Optional integration', age: 'pending' },
-  { source: 'Lindy', subject: 'Recent actions', status: 'No public API; link out for now', age: 'manual' },
-  { source: 'Calendar', subject: "Today's schedule", status: 'Waiting on Google Calendar connector', age: 'pending' },
-]
-
 const usageRows: UsageRow[] = [
   { service: 'ClearBid API', calls: 0, cost: '$0.00', successRate: '-' },
   { service: 'KIM Assistant API', calls: 0, cost: '$0.00', successRate: '-' },
@@ -127,63 +99,7 @@ const usageRows: UsageRow[] = [
   { service: 'Google Sheets logging', calls: 0, cost: '$0.00', successRate: '-' },
 ]
 
-const projectLinks: ProjectLink[] = [
-  {
-    id: 'clearbid',
-    name: 'ClearBid',
-    type: 'Replit',
-    href: 'https://price-library.replit.app',
-    status: 'Live app',
-    detail: 'Estimating, price library, job volume',
-  },
-  {
-    id: 'ministry',
-    name: 'Ministry Companion',
-    type: 'GitHub',
-    href: 'https://github.com/cemwatcher2025/ministry-companion',
-    status: 'Repo found',
-    detail: 'Service records, visits, studies',
-  },
-  {
-    id: 'kim',
-    name: 'KIM Assistant',
-    type: 'Replit',
-    href: 'https://kim-assistant.replit.app',
-    status: 'Live app',
-    detail: 'Assistant events, briefings, task flow',
-  },
-  {
-    id: 'enforge',
-    name: 'Enforge Designs',
-    type: 'GitHub',
-    href: 'https://github.com/cemwatcher2025/enforge-designs',
-    status: 'Active repo',
-    detail: 'Command center frontend, proxy, deployment',
-  },
-  {
-    id: 'roam',
-    name: 'ROAM',
-    type: 'Placeholder',
-    href: 'https://github.com/cemwatcher2025',
-    status: 'Repo TBD',
-    detail: 'Unreal Engine project placeholder',
-  },
-]
-
-const documentLinks: DocumentLink[] = [
-  {
-    id: 'command-center-spec',
-    title: 'Enforge Command Center Build Spec',
-    href: 'https://docs.google.com/document/d/1efJpHdlcvMcxxNw_jsYDWLPvrjSQFWZnzr7a1hq1kD8',
-    tags: ['spec', 'command center', 'phase plan', 'dashboard'],
-    detail: 'Primary build spec and panel roadmap',
-  },
-]
-
-const futurePanels = [
-  '3D Viewer',
-  'Ministry Panel',
-]
+const fallbackConfig: AdminConfig = defaultAdminConfig
 
 function statusLabel(state: ServiceState) {
   if (state === 'online') return 'Online'
@@ -208,13 +124,42 @@ function runLabel(run: ActionRun) {
   return run.status ?? 'unknown'
 }
 
+function readAdminConfig(): AdminConfig {
+  try {
+    const saved = window.localStorage.getItem(configStorageKey)
+    if (!saved) return fallbackConfig
+    const parsed = JSON.parse(saved) as Partial<AdminConfig>
+
+    return {
+      activeProject: parsed.activeProject ?? fallbackConfig.activeProject,
+      apiEndpoints: parsed.apiEndpoints ?? fallbackConfig.apiEndpoints,
+      comms: { ...fallbackConfig.comms, ...parsed.comms },
+      documents: parsed.documents ?? fallbackConfig.documents,
+      panels: parsed.panels ?? fallbackConfig.panels,
+      projects: parsed.projects ?? fallbackConfig.projects,
+      theme: parsed.theme ?? fallbackConfig.theme,
+    }
+  } catch {
+    return fallbackConfig
+  }
+}
+
+function writeAdminConfig(config: AdminConfig) {
+  window.localStorage.setItem(configStorageKey, JSON.stringify(config))
+}
+
+function routeFromLocation() {
+  return window.location.pathname === '/admin' ? 'admin' : 'dashboard'
+}
+
 function App() {
+  const [adminConfig, setAdminConfig] = useState(readAdminConfig)
+  const [route, setRoute] = useState(routeFromLocation)
   const [usageCount, setUsageCount] = useState(() => readUsageLog().length)
   const [replyDraft, setReplyDraft] = useState('')
   const [replyStatus, setReplyStatus] = useState('No reply staged yet.')
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [liveDataStatus, setLiveDataStatus] = useState('Live data not loaded yet.')
-  const [activeProject, setActiveProject] = useState('enforge')
   const [documentQuery, setDocumentQuery] = useState('')
   const [actionRuns, setActionRuns] = useState<ActionRun[]>([])
   const [actionsStatus, setActionsStatus] = useState('Loading GitHub Actions status...')
@@ -236,15 +181,23 @@ function App() {
       })),
     [dashboardData, usageCount],
   )
+  const health = useMemo(
+    () => Object.fromEntries(currentServices.map((service) => [service.id, service.state])),
+    [currentServices],
+  )
+  const visiblePanelIds = useMemo(
+    () => adminConfig.panels.filter((panel) => panel.visible).map((panel) => panel.id),
+    [adminConfig.panels],
+  )
   const visibleDocuments = useMemo(() => {
     const query = documentQuery.trim().toLowerCase()
-    if (!query) return documentLinks
+    if (!query) return adminConfig.documents
 
-    return documentLinks.filter((document) => {
+    return adminConfig.documents.filter((document) => {
       const haystack = [document.title, document.detail, ...document.tags].join(' ').toLowerCase()
       return haystack.includes(query)
     })
-  }, [documentQuery])
+  }, [adminConfig.documents, documentQuery])
 
   useEffect(() => {
     let cancelled = false
@@ -267,6 +220,20 @@ function App() {
       cancelled = true
       window.clearInterval(interval)
     }
+  }, [])
+
+  useEffect(() => {
+    writeAdminConfig(adminConfig)
+    document.body.dataset.theme = adminConfig.theme
+  }, [adminConfig])
+
+  useEffect(() => {
+    function syncRoute() {
+      setRoute(routeFromLocation())
+    }
+
+    window.addEventListener('popstate', syncRoute)
+    return () => window.removeEventListener('popstate', syncRoute)
   }, [])
 
   useEffect(() => {
@@ -305,43 +272,48 @@ function App() {
     }
   }
 
-  return (
-    <main className="command-shell">
-      <header className="command-header">
-        <div>
-          <p className="eyebrow">Enforge Command Center</p>
-          <h1>Logistics Dashboard + Communications Hub</h1>
-          <p className="header-copy">
-            Phase 1 and 2 command surface for ClearBid, Ministry Companion, KIM, docs, repositories, schedule, and action triage.
-          </p>
-        </div>
-        <div className="launch-card">
-          <span className="launch-label">Deployment</span>
-          <strong>enforgedesigns.com</strong>
-          <span>GitHub Pages · Custom domain · Phase 2</span>
-        </div>
-      </header>
+  function updateAdminConfig(nextConfig: AdminConfig) {
+    setAdminConfig(nextConfig)
+  }
 
-      <section className="status-strip" aria-label="Service connection status">
-        {currentServices.map((service) => (
-          <article className="status-pill" data-state={service.state} key={service.name}>
-            <span className="status-dot" />
-            <div>
-              <strong>{service.name}</strong>
-              <span>{statusLabel(service.state)}</span>
-            </div>
-          </article>
-        ))}
-      </section>
+  function resetAdminConfig() {
+    setAdminConfig(fallbackConfig)
+  }
 
-      <section className="dashboard-grid">
+  function openAdmin() {
+    window.history.pushState({}, '', '/admin')
+    setRoute('admin')
+  }
+
+  function openDashboard() {
+    window.history.pushState({}, '', '/')
+    setRoute('dashboard')
+  }
+
+  function setActiveProject(activeProject: string) {
+    updateAdminConfig({ ...adminConfig, activeProject })
+  }
+
+  function shouldShowPanel(id: PanelId) {
+    return visiblePanelIds.includes(id)
+  }
+
+  function endpointFor(id: string, fallback: string) {
+    return adminConfig.apiEndpoints.find((endpoint) => endpoint.id === id)?.endpoint ?? fallback
+  }
+
+  function renderPanel(id: PanelId) {
+    if (!shouldShowPanel(id)) return null
+
+    if (id === 'logistics') {
+      return (
         <article className="panel panel-large">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Panel 01</p>
               <h2>Logistics Dashboard</h2>
             </div>
-            <span className="panel-badge">MVP</span>
+            <span className="panel-badge">Live</span>
           </div>
 
           <div className="metric-grid">
@@ -361,85 +333,29 @@ function App() {
                   <strong>{service.name}</strong>
                   <span>{service.purpose}</span>
                 </div>
-                <code>{service.endpoint}</code>
+                <code>{endpointFor(service.id, service.endpoint)}</code>
               </div>
             ))}
           </div>
           <p className="panel-note">{liveDataStatus}</p>
         </article>
+      )
+    }
 
-        <article className="panel panel-large">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Panel 02</p>
-              <h2>Communications Hub</h2>
-            </div>
-            <span className="panel-badge">MVP</span>
-          </div>
+    if (id === 'communications') {
+      return (
+        <CommsHub
+          config={adminConfig.comms}
+          onStageReply={stageReply}
+          replyDraft={replyDraft}
+          replyStatus={replyStatus}
+          setReplyDraft={setReplyDraft}
+        />
+      )
+    }
 
-          <div className="message-stack">
-            {messages.map((message) => (
-              <div className="message-row" key={`${message.source}-${message.subject}`}>
-                <span>{message.source}</span>
-                <div>
-                  <strong>{message.subject}</strong>
-                  <p>{message.status}</p>
-                </div>
-                <em>{message.age}</em>
-              </div>
-            ))}
-          </div>
-
-          <form className="quick-reply">
-            <label htmlFor="quick-reply">Quick reply draft</label>
-            <textarea
-              id="quick-reply"
-              onChange={(event) => setReplyDraft(event.target.value)}
-              placeholder="Draft a response or action note. Sending is disabled until connectors are configured."
-              value={replyDraft}
-            />
-            <button onClick={stageReply} type="button">Stage reply</button>
-            <p className="reply-status">{replyStatus}</p>
-          </form>
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading compact">
-            <div>
-              <p className="eyebrow">Utility</p>
-              <h2>Usage Tracking</h2>
-            </div>
-          </div>
-          <div className="usage-table">
-            {currentUsageRows.map((row) => (
-              <div className="usage-row" key={row.service}>
-                <span>{row.service}</span>
-                <strong>{row.calls}</strong>
-                <em>{row.cost}</em>
-                <small>{row.successRate}</small>
-              </div>
-            ))}
-          </div>
-          <p className="panel-note">
-            Google Sheet logging is scaffolded as a connector target. A server-side proxy or Apps Script endpoint is required before live API calls are safe.
-          </p>
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading compact">
-            <div>
-              <p className="eyebrow">Manifest</p>
-              <h2>README Protocol</h2>
-            </div>
-          </div>
-          <ul className="manifest-list">
-            <li>Read README at task start.</li>
-            <li>Keep secrets out of committed files.</li>
-            <li>Track active phase, endpoints, changes, and next actions.</li>
-            <li>Use manual updates until a secure backend writer exists.</li>
-          </ul>
-        </article>
-
+    if (id === 'coding') {
+      return (
         <article className="panel panel-wide coding-panel">
           <div className="panel-heading compact">
             <div>
@@ -451,18 +367,18 @@ function App() {
 
           <div className="active-project">
             <label htmlFor="active-project">Active project</label>
-            <select id="active-project" onChange={(event) => setActiveProject(event.target.value)} value={activeProject}>
-              {projectLinks.map((project) => (
+            <select id="active-project" onChange={(event) => setActiveProject(event.target.value)} value={adminConfig.activeProject}>
+              {adminConfig.projects.map((project) => (
                 <option key={project.id} value={project.id}>{project.name}</option>
               ))}
             </select>
           </div>
 
           <div className="project-grid">
-            {projectLinks.map((project) => (
+            {adminConfig.projects.map((project) => (
               <a
                 className="project-card"
-                data-active={project.id === activeProject}
+                data-active={project.id === adminConfig.activeProject}
                 href={project.href}
                 key={project.id}
                 rel="noreferrer"
@@ -495,7 +411,11 @@ function App() {
             )}
           </div>
         </article>
+      )
+    }
 
+    if (id === 'documents') {
+      return (
         <article className="panel panel-wide documents-panel">
           <div className="panel-heading compact">
             <div>
@@ -527,13 +447,103 @@ function App() {
             {visibleDocuments.length === 0 && <p className="panel-note">No docs match that filter.</p>}
           </div>
         </article>
+      )
+    }
 
-        {futurePanels.map((panel) => (
-          <article className="panel future-panel" key={panel}>
-            <p className="eyebrow">Phase 3</p>
-            <h2>{panel}</h2>
-            <p>Reserved module slot. Built independently after Phase 2 stabilizes.</p>
+    if (id === 'settings') {
+      return (
+        <article className="panel settings-panel">
+          <div className="panel-heading compact">
+            <div>
+              <p className="eyebrow">Settings</p>
+              <h2>Usage + Manifest</h2>
+            </div>
+            <button className="small-action" onClick={openAdmin} type="button">Admin</button>
+          </div>
+          <div className="usage-table">
+            {currentUsageRows.map((row) => (
+              <div className="usage-row" key={row.service}>
+                <span>{row.service}</span>
+                <strong>{row.calls}</strong>
+                <em>{row.cost}</em>
+                <small>{row.successRate}</small>
+              </div>
+            ))}
+          </div>
+          <ul className="manifest-list">
+            <li>Read README at task start.</li>
+            <li>Keep secrets out of committed files.</li>
+            <li>Panel settings save locally.</li>
+            <li>Use the Replit proxy for live service status.</li>
+          </ul>
+        </article>
+      )
+    }
+
+    if (id === 'sandbox3d') {
+      return (
+        <article className="panel future-panel">
+          <p className="eyebrow">Phase 4</p>
+          <h2>3D Sandbox</h2>
+          <p>Reserved module slot for Unreal exports, Blender renders, ROAM screenshots, and concept-art galleries.</p>
+        </article>
+      )
+    }
+
+    return (
+      <article className="panel future-panel">
+        <p className="eyebrow">Phase 4</p>
+        <h2>Ministry Panel</h2>
+        <p>Reserved module slot for hours, return visits, studies, territory notes, and daily text workflows.</p>
+      </article>
+    )
+  }
+
+  if (route === 'admin') {
+    return (
+      <AdminPanel
+        config={adminConfig}
+        health={health}
+        onBack={openDashboard}
+        onReset={resetAdminConfig}
+        onUpdate={updateAdminConfig}
+      />
+    )
+  }
+
+  return (
+    <main className="command-shell">
+      <header className="command-header">
+        <div>
+          <p className="eyebrow">Enforge Command Center</p>
+          <h1>Logistics Dashboard + Communications Hub</h1>
+          <p className="header-copy">
+            Phase 3 command surface for ClearBid, Ministry Companion, KIM, docs, repositories, schedule, and local admin controls.
+          </p>
+        </div>
+        <div className="launch-card">
+          <span className="launch-label">Deployment</span>
+          <strong>enforgedesigns.com</strong>
+          <span>GitHub Pages · Custom domain · Phase 3</span>
+          <button className="gear-button" aria-label="Open admin panel" onClick={openAdmin} type="button">⚙</button>
+        </div>
+      </header>
+
+      <section className="status-strip" aria-label="Service connection status">
+        {currentServices.map((service) => (
+          <article className="status-pill" data-state={service.state} key={service.name}>
+            <span className="status-dot" />
+            <div>
+              <strong>{service.name}</strong>
+              <span>{statusLabel(service.state)}</span>
+            </div>
           </article>
+        ))}
+      </section>
+
+      <section className="dashboard-grid">
+        {adminConfig.panels.map((panel) => (
+          <Fragment key={panel.id}>{renderPanel(panel.id)}</Fragment>
         ))}
       </section>
     </main>

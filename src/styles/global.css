@@ -22,6 +22,14 @@ body {
   overflow-x: hidden;
 }
 
+body[data-theme="light"] {
+  color: #07111f;
+  background:
+    radial-gradient(circle at 14% 10%, rgba(0, 145, 255, 0.18), transparent 28%),
+    radial-gradient(circle at 84% 12%, rgba(255, 47, 179, 0.14), transparent 30%),
+    linear-gradient(135deg, #f7fbff 0%, #eaf3ff 50%, #ffffff 100%);
+}
+
 button,
 input,
 select,
@@ -103,6 +111,7 @@ h2 {
 }
 
 .launch-card {
+  position: relative;
   min-height: 150px;
   padding: 22px;
   border-top: 3px solid #ff2fb3;
@@ -128,6 +137,19 @@ h2 {
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.gear-button {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #00e5ff;
+  color: #05070d;
+  font-size: 20px;
+  font-weight: 900;
 }
 
 .status-strip {
@@ -173,6 +195,16 @@ h2 {
   box-shadow: 0 0 24px rgba(255, 51, 85, 0.72);
 }
 
+.mini-status[data-state="online"] .status-dot {
+  background: #40ff6a;
+  box-shadow: 0 0 24px rgba(64, 255, 106, 0.72);
+}
+
+.mini-status[data-state="offline"] .status-dot {
+  background: #ff3355;
+  box-shadow: 0 0 24px rgba(255, 51, 85, 0.72);
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -197,6 +229,10 @@ h2 {
 .panel-wide {
   grid-column: span 3;
   min-height: 560px;
+}
+
+.settings-panel {
+  min-height: 420px;
 }
 
 .panel-heading {
@@ -310,6 +346,108 @@ h2 {
   font-size: 12px;
   font-style: normal;
   font-weight: 800;
+}
+
+.comms-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mini-status {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 70px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.mini-status strong,
+.mini-status span:not(.status-dot) {
+  display: block;
+}
+
+.mini-status span:not(.status-dot) {
+  color: #a9b8d7;
+  font-size: 13px;
+}
+
+.comms-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.comms-actions a,
+.small-action,
+.admin-top-actions button,
+.row-actions button,
+.editable-card button,
+.theme-toggle button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 229, 255, 0.12);
+  color: #00e5ff;
+  font-weight: 900;
+}
+
+.comms-actions a:nth-child(2),
+.small-action {
+  background: #ff2fb3;
+  color: #05070d;
+}
+
+.comms-block {
+  margin-top: 16px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.section-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.section-heading span {
+  color: #40ff6a;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.message-link {
+  color: inherit;
+}
+
+.calendar-next {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.calendar-next span {
+  color: #00e5ff;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.calendar-next p {
+  margin: 0;
+  color: #a9b8d7;
 }
 
 .terminal-feed {
@@ -545,6 +683,10 @@ h2 {
   line-height: 1.8;
 }
 
+.settings-panel .manifest-list {
+  margin-top: 16px;
+}
+
 .future-panel {
   min-height: 210px;
   background:
@@ -556,16 +698,152 @@ h2 {
   margin-bottom: 12px;
 }
 
+.admin-shell {
+  width: min(1500px, 100%);
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-panel-card {
+  grid-column: span 1;
+  min-height: 320px;
+}
+
+.admin-actions-card {
+  min-height: 170px;
+}
+
+.admin-top-actions,
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-list,
+.editable-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-row,
+.endpoint-row,
+.editable-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.admin-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.endpoint-row {
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1fr);
+  align-items: center;
+}
+
+.toggle-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: #f3f7ff;
+  font-weight: 800;
+}
+
+.toggle-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: #40ff6a;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 5px;
+  background: #05070d;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.theme-toggle button[data-active="true"] {
+  background: #40ff6a;
+  color: #05070d;
+}
+
+.row-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.endpoint-row input,
+.editable-card input,
+.editable-card textarea,
+.editable-list > input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #05070d;
+  color: #f3f7ff;
+  padding: 10px;
+}
+
+.editable-card textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+body[data-theme="light"] .launch-card,
+body[data-theme="light"] .panel,
+body[data-theme="light"] .status-pill {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(6, 18, 34, 0.14);
+}
+
+body[data-theme="light"] .header-copy,
+body[data-theme="light"] .panel-note,
+body[data-theme="light"] .manifest-list,
+body[data-theme="light"] .metric-card p,
+body[data-theme="light"] .project-card p,
+body[data-theme="light"] .document-card p,
+body[data-theme="light"] .mini-status span:not(.status-dot),
+body[data-theme="light"] .calendar-next p,
+body[data-theme="light"] .message-row p {
+  color: #40506a;
+}
+
+body[data-theme="light"] .metric-card,
+body[data-theme="light"] .terminal-feed,
+body[data-theme="light"] .quick-reply textarea,
+body[data-theme="light"] .active-project select,
+body[data-theme="light"] .document-search input,
+body[data-theme="light"] .theme-toggle,
+body[data-theme="light"] .endpoint-row input,
+body[data-theme="light"] .editable-card input,
+body[data-theme="light"] .editable-card textarea,
+body[data-theme="light"] .editable-list > input {
+  background: #ffffff;
+  color: #07111f;
+}
+
 @media (max-width: 1080px) {
   .command-header,
   .status-strip,
   .dashboard-grid,
-  .metric-grid {
+  .metric-grid,
+  .admin-grid {
     grid-template-columns: 1fr;
   }
 
   .panel-large,
   .panel-wide,
+  .admin-panel-card,
   .panel:not(.panel-large) {
     grid-column: span 1;
   }
@@ -580,6 +858,9 @@ h2 {
   .message-row,
   .usage-row,
   .project-grid,
+  .comms-status-grid,
+  .admin-row,
+  .endpoint-row,
   .terminal-feed a {
     grid-template-columns: 1fr;
   }
