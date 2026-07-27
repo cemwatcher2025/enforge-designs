@@ -14,6 +14,15 @@ USAGE_LOG_WEBHOOK_URL
 ALLOWED_ORIGINS=https://enforgedesigns.com,http://localhost:5173,http://127.0.0.1:5173
 ```
 
+The proxy also accepts these alias names from the deployment prompt:
+
+```text
+CLEARBIDTOKEN
+MINISTRYTOKEN
+KIMTOKEN
+USAGELOGWEBHOOK_URL
+```
+
 Optional upstream path overrides:
 
 ```text

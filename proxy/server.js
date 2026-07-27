@@ -9,24 +9,31 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://enforgedesigns.c
   .map((origin) => origin.trim())
   .filter(Boolean)
 
-const usageWebhookUrl = process.env.USAGE_LOG_WEBHOOK_URL || ''
+function env(...names) {
+  for (const name of names) {
+    if (process.env[name]) return process.env[name]
+  }
+  return ''
+}
+
+const usageWebhookUrl = env('USAGE_LOG_WEBHOOK_URL', 'USAGELOGWEBHOOK_URL')
 
 const upstreams = {
   clearbid: {
     baseUrl: process.env.CLEARBID_API_BASE || 'https://price-library.replit.app',
-    token: process.env.CLEARBID_TOKEN || '',
+    token: env('CLEARBID_TOKEN', 'CLEARBIDTOKEN'),
     estimatesPath: process.env.CLEARBID_ESTIMATES_PATH || '/api/estimates',
     healthPath: process.env.CLEARBID_HEALTH_PATH || '/api/health',
   },
   ministry: {
     baseUrl: process.env.MINISTRY_API_BASE || 'https://ministry-companion.replit.app',
-    token: process.env.MINISTRY_TOKEN || '',
+    token: env('MINISTRY_TOKEN', 'MINISTRYTOKEN'),
     statsPath: process.env.MINISTRY_STATS_PATH || '/api/stats',
     healthPath: process.env.MINISTRY_HEALTH_PATH || '/api/health',
   },
   kim: {
     baseUrl: process.env.KIM_API_BASE || 'https://kim-assistant.replit.app',
-    token: process.env.KIM_TOKEN || '',
+    token: env('KIM_TOKEN', 'KIMTOKEN'),
     statusPath: process.env.KIM_STATUS_PATH || '/api/status',
     healthPath: process.env.KIM_HEALTH_PATH || '/api/health',
   },
