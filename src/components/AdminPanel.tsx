@@ -1,7 +1,9 @@
 import type { AdminConfig, ApiEndpointConfig, DocumentLink, PanelConfig, ProjectLink, ServiceState, ThemeMode } from '../config'
 import { defaultAdminConfig } from '../config'
+import type { AdminApiStatus } from '../utils/adminConfigApi'
 
 type AdminPanelProps = {
+  adminApiStatus: AdminApiStatus
   config: AdminConfig
   health: Record<string, ServiceState>
   onBack: () => void
@@ -28,7 +30,7 @@ function statusText(state?: ServiceState) {
   return 'Pending'
 }
 
-export function AdminPanel({ config, health, onBack, onReset, onUpdate }: AdminPanelProps) {
+export function AdminPanel({ adminApiStatus, config, health, onBack, onReset, onUpdate }: AdminPanelProps) {
   function updateTheme(theme: ThemeMode) {
     onUpdate({ ...config, theme })
   }
@@ -56,12 +58,19 @@ export function AdminPanel({ config, health, onBack, onReset, onUpdate }: AdminP
           <p className="eyebrow">Admin</p>
           <h1>Command Center Controls</h1>
           <p className="header-copy">
-            Local controls for panel layout, links, endpoint labels, and theme. Changes save to this browser.
+            Controls for panel layout, links, endpoint labels, and theme. Changes sync to the proxy when available and fall back locally.
           </p>
         </div>
         <div className="launch-card admin-actions-card">
-          <span className="launch-label">Local Config</span>
+          <span className="launch-label">Remote Config</span>
           <strong>Admin Panel</strong>
+          <div className="admin-api-status" data-state={adminApiStatus.connected ? 'online' : 'offline'}>
+            <span className="status-dot" />
+            <div>
+              <b>{adminApiStatus.connected ? 'Admin API connected' : 'Local fallback'}</b>
+              <small>{adminApiStatus.message} Last check {adminApiStatus.lastSync}.</small>
+            </div>
+          </div>
           <div className="admin-top-actions">
             <button onClick={onBack} type="button">Back to Dashboard</button>
             <button onClick={onReset} type="button">Reset Defaults</button>

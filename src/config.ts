@@ -183,3 +183,20 @@ export const defaultAdminConfig: AdminConfig = {
   sandbox3d: defaultSandbox3DConfig,
   theme: 'dark',
 }
+
+export function normalizeAdminConfig(config: Partial<AdminConfig> & {
+  documentLinks?: DocumentLink[]
+  projectCards?: ProjectLink[]
+} = {}): AdminConfig {
+  return {
+    activeProject: config.activeProject ?? defaultAdminConfig.activeProject,
+    apiEndpoints: config.apiEndpoints ?? defaultAdminConfig.apiEndpoints,
+    comms: { ...defaultAdminConfig.comms, ...config.comms },
+    documents: config.documents ?? config.documentLinks ?? defaultAdminConfig.documents,
+    ministry: { ...defaultAdminConfig.ministry, ...config.ministry },
+    panels: config.panels ?? defaultAdminConfig.panels,
+    projects: config.projects ?? config.projectCards ?? defaultAdminConfig.projects,
+    sandbox3d: { ...defaultAdminConfig.sandbox3d, ...config.sandbox3d },
+    theme: config.theme ?? defaultAdminConfig.theme,
+  }
+}
