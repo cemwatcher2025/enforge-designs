@@ -1,8 +1,14 @@
 import cors from 'cors'
 import express from 'express'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const app = express()
 const port = process.env.PORT || 3000
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const dataDir = path.join(__dirname, 'data')
+const configPath = path.join(dataDir, 'config.json')
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://enforgedesigns.com,http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
@@ -17,6 +23,72 @@ function env(...names) {
 }
 
 const usageWebhookUrl = env('USAGE_LOG_WEBHOOK_URL', 'USAGELOGWEBHOOK_URL')
+
+const defaultDashboardConfig = {
+  activeProject: 'enforge',
+  documentLinks: [
+    {
+      detail: 'Primary build spec and panel roadmap',
+      href: 'https://docs.google.com/document/d/1efJpHdlcvMcxxNw_jsYDWLPvrjSQFWZnzr7a1hq1kD8',
+      id: 'command-center-spec',
+      tags: ['spec', 'command center', 'phase plan', 'dashboard'],
+      title: 'Enforge Command Center Build Spec',
+    },
+  ],
+  lastUpdatedAt: null,
+  panels: [
+    { id: 'logistics', label: 'Dashboard', visible: true },
+    { id: 'communications', label: 'Comms Hub', visible: true },
+    { id: 'coding', label: 'Coding Sandbox', visible: true },
+    { id: 'documents', label: 'Documents', visible: true },
+    { id: 'settings', label: 'Settings', visible: true },
+    { id: 'sandbox3d', label: '3D Sandbox', visible: true },
+    { id: 'ministry', label: 'Ministry', visible: true },
+  ],
+  projectCards: [
+    {
+      detail: 'Estimating, price library, job volume',
+      href: 'https://price-library.replit.app',
+      id: 'clearbid',
+      name: 'ClearBid',
+      status: 'Live app',
+      type: 'Replit',
+    },
+    {
+      detail: 'Service records, visits, studies',
+      href: 'https://github.com/cemwatcher2025/ministry-companion',
+      id: 'ministry',
+      name: 'Ministry Companion',
+      status: 'Repo found',
+      type: 'GitHub',
+    },
+    {
+      detail: 'Assistant events, briefings, task flow',
+      href: 'https://kim-assistant.replit.app',
+      id: 'kim',
+      name: 'KIM Assistant',
+      status: 'Live app',
+      type: 'Replit',
+    },
+    {
+      detail: 'Command center frontend, proxy, deployment',
+      href: 'https://github.com/cemwatcher2025/enforge-designs',
+      id: 'enforge',
+      name: 'Enforge Designs',
+      status: 'Active repo',
+      type: 'GitHub',
+    },
+    {
+      detail: 'Unreal Engine project placeholder',
+      href: 'https://github.com/cemwatcher2025',
+      id: 'roam',
+      name: 'ROAM',
+      status: 'Repo TBD',
+      type: 'Placeholder',
+    },
+  ],
+  theme: 'dark',
+}
 
 const upstreams = {
   clearbid: {
@@ -53,6 +125,77 @@ app.use(express.json())
 
 function joinUrl(baseUrl, path) {
   return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
+}
+
+function asObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function normalizeDashboardConfig(config) {
+  const source = asObject(config)
+  return {
+    ...defaultDashboardConfig,
+    ...source,
+    documentLinks: Array.isArray(source.documentLinks)
+      ? source.documentLinks
+      : Array.isArray(source.documents)
+        ? source.documents
+        : defaultDashboardConfig.documentLinks,
+    panels: Array.isArray(source.panels) ? source.panels : defaultDashboardConfig.panels,
+    projectCards: Array.isArray(source.projectCards)
+      ? source.projectCards
+      : Array.isArray(source.projects)
+        ? source.projects
+        : defaultDashboardConfig.projectCards,
+    theme: source.theme === 'light' ? 'light' : 'dark',
+  }
+}
+
+async function readDashboardConfig() {
+  try {
+    const text = await readFile(configPath, 'utf8')
+    return normalizeDashboardConfig(JSON.parse(text))
+  } catch (error) {
+    if (error.code !== 'ENOENT') console.warn('Config read failed:', error.message)
+    return normalizeDashboardConfig(defaultDashboardConfig)
+  }
+}
+
+async function writeDashboardConfig(config) {
+  await mkdir(dataDir, { recursive: true })
+  const normalized = normalizeDashboardConfig({
+    ...config,
+    lastUpdatedAt: new Date().toISOString(),
+  })
+  const tempPath = `${configPath}.${process.pid}.${Date.now()}.tmp`
+  await writeFile(tempPath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8')
+  await rename(tempPath, configPath)
+  return normalized
+}
+
+function toApiConfig(config) {
+  return {
+    ...config,
+    documentLinks: config.documentLinks,
+    projectCards: config.projectCards,
+  }
+}
+
+async function getHealthSummary() {
+  const checks = await Promise.all([
+    callUpstream(upstreams.clearbid, upstreams.clearbid.healthPath, 'ClearBid API', 'Health check'),
+    callUpstream(upstreams.ministry, upstreams.ministry.healthPath, 'Ministry Companion API', 'Health check'),
+    callUpstream(upstreams.kim, upstreams.kim.healthPath, 'KIM Assistant API', 'Health check'),
+  ])
+
+  return {
+    ok: checks.every((check) => check.ok),
+    services: {
+      clearbid: { ok: checks[0].ok, status: checks[0].ok ? 'online' : 'offline', latencyMs: checks[0].latencyMs, upstreamStatus: checks[0].status },
+      ministry: { ok: checks[1].ok, status: checks[1].ok ? 'online' : 'offline', latencyMs: checks[1].latencyMs, upstreamStatus: checks[1].status },
+      kim: { ok: checks[2].ok, status: checks[2].ok ? 'online' : 'offline', latencyMs: checks[2].latencyMs, upstreamStatus: checks[2].status },
+    },
+  }
 }
 
 async function logUsage(service, purpose, success, cost = '$0.00') {
@@ -169,7 +312,50 @@ function normalizeKimStatus(payload) {
 app.get('/', (_request, response) => {
   response.json({
     name: 'Enforge Command Center Proxy',
-    endpoints: ['/api/health', '/api/clearbid/estimates', '/api/ministry/stats', '/api/ministry/hours', '/api/kim/status'],
+    endpoints: [
+      '/api/health',
+      '/api/admin/config',
+      '/api/admin/status',
+      '/api/clearbid/estimates',
+      '/api/ministry/stats',
+      '/api/ministry/hours',
+      '/api/kim/status',
+    ],
+  })
+})
+
+app.get('/api/admin/config', async (_request, response) => {
+  const config = await readDashboardConfig()
+  response.json(toApiConfig(config))
+})
+
+app.post('/api/admin/config', async (request, response) => {
+  const current = await readDashboardConfig()
+  const body = asObject(request.body)
+  const next = await writeDashboardConfig({
+    ...current,
+    ...body,
+    documentLinks: Array.isArray(body.documentLinks) ? body.documentLinks : Array.isArray(body.documents) ? body.documents : current.documentLinks,
+    panels: Array.isArray(body.panels) ? body.panels : current.panels,
+    projectCards: Array.isArray(body.projectCards) ? body.projectCards : Array.isArray(body.projects) ? body.projects : current.projectCards,
+  })
+  await logUsage('Admin API', 'Update dashboard config', true)
+  response.json({ config: toApiConfig(next), ok: true })
+})
+
+app.get('/api/admin/status', async (_request, response) => {
+  const [config, health] = await Promise.all([
+    readDashboardConfig(),
+    getHealthSummary(),
+  ])
+
+  response.json({
+    documentLinkCount: config.documentLinks.length,
+    health,
+    lastConfigUpdateTime: config.lastUpdatedAt,
+    panels: config.panels.map((panel) => ({ id: panel.id, label: panel.label, visible: panel.visible })),
+    projectCardCount: config.projectCards.length,
+    theme: config.theme,
   })
 })
 
@@ -200,25 +386,14 @@ app.get('/api/kim/status', async (_request, response) => {
 })
 
 app.get('/api/health', async (_request, response) => {
-  const checks = await Promise.all([
-    callUpstream(upstreams.clearbid, upstreams.clearbid.healthPath, 'ClearBid API', 'Health check'),
-    callUpstream(upstreams.ministry, upstreams.ministry.healthPath, 'Ministry Companion API', 'Health check'),
-    callUpstream(upstreams.kim, upstreams.kim.healthPath, 'KIM Assistant API', 'Health check'),
-  ])
-
-  response.json({
-    ok: checks.every((check) => check.ok),
-    services: {
-      clearbid: { ok: checks[0].ok, status: checks[0].ok ? 'online' : 'offline', latencyMs: checks[0].latencyMs, upstreamStatus: checks[0].status },
-      ministry: { ok: checks[1].ok, status: checks[1].ok ? 'online' : 'offline', latencyMs: checks[1].latencyMs, upstreamStatus: checks[1].status },
-      kim: { ok: checks[2].ok, status: checks[2].ok ? 'online' : 'offline', latencyMs: checks[2].latencyMs, upstreamStatus: checks[2].status },
-    },
-  })
+  response.json(await getHealthSummary())
 })
 
 app.use((error, _request, response, _next) => {
   response.status(500).json({ error: error.message })
 })
+
+await mkdir(dataDir, { recursive: true })
 
 app.listen(port, () => {
   console.log(`Enforge proxy listening on port ${port}`)

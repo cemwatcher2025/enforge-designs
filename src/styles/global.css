@@ -724,6 +724,36 @@ h2 {
   gap: 8px;
 }
 
+.admin-api-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.admin-api-status b,
+.admin-api-status small {
+  display: block;
+}
+
+.admin-api-status small {
+  color: #a9b8d7;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.admin-api-status[data-state="online"] .status-dot {
+  background: #40ff6a;
+  box-shadow: 0 0 24px rgba(64, 255, 106, 0.72);
+}
+
+.admin-api-status[data-state="offline"] .status-dot {
+  background: #ff3355;
+  box-shadow: 0 0 24px rgba(255, 51, 85, 0.72);
+}
+
 .admin-list,
 .editable-list {
   display: grid;

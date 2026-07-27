@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminPanel } from './components/AdminPanel'
 import { CommsHub } from './components/CommsHub'
 import { MinistryPanel } from './components/MinistryPanel'
 import { Sandbox3D } from './components/Sandbox3D'
-import { defaultAdminConfig, type Accent, type AdminConfig, type PanelId, type ServiceState } from './config'
+import { defaultAdminConfig, normalizeAdminConfig, type Accent, type AdminConfig, type PanelId, type ServiceState } from './config'
+import { connectedStatus, disconnectedStatus, fetchRemoteAdminConfig, saveRemoteAdminConfig, type AdminApiStatus } from './utils/adminConfigApi'
 import { fetchDashboardData, type DashboardData } from './utils/commandCenterApi'
 import { logUsage, readUsageLog } from './utils/usageTracking'
 
@@ -130,19 +131,7 @@ function readAdminConfig(): AdminConfig {
   try {
     const saved = window.localStorage.getItem(configStorageKey)
     if (!saved) return fallbackConfig
-    const parsed = JSON.parse(saved) as Partial<AdminConfig>
-
-    return {
-      activeProject: parsed.activeProject ?? fallbackConfig.activeProject,
-      apiEndpoints: parsed.apiEndpoints ?? fallbackConfig.apiEndpoints,
-      comms: { ...fallbackConfig.comms, ...parsed.comms },
-      documents: parsed.documents ?? fallbackConfig.documents,
-      ministry: parsed.ministry ?? fallbackConfig.ministry,
-      panels: parsed.panels ?? fallbackConfig.panels,
-      projects: parsed.projects ?? fallbackConfig.projects,
-      sandbox3d: parsed.sandbox3d ?? fallbackConfig.sandbox3d,
-      theme: parsed.theme ?? fallbackConfig.theme,
-    }
+    return normalizeAdminConfig(JSON.parse(saved) as Partial<AdminConfig>)
   } catch {
     return fallbackConfig
   }
@@ -158,6 +147,8 @@ function routeFromLocation() {
 
 function App() {
   const [adminConfig, setAdminConfig] = useState(readAdminConfig)
+  const [adminApiStatus, setAdminApiStatus] = useState<AdminApiStatus>(() => disconnectedStatus('Admin API not checked yet.'))
+  const adminApiWritable = useRef(false)
   const [route, setRoute] = useState(routeFromLocation)
   const [usageCount, setUsageCount] = useState(() => readUsageLog().length)
   const [replyDraft, setReplyDraft] = useState('')
@@ -229,6 +220,43 @@ function App() {
   useEffect(() => {
     writeAdminConfig(adminConfig)
     document.body.dataset.theme = adminConfig.theme
+  }, [adminConfig])
+
+  useEffect(() => {
+    let cancelled = false
+    const timeout = window.setTimeout(() => {
+      fetchRemoteAdminConfig()
+        .then((remoteConfig) => {
+          if (cancelled) return
+          adminApiWritable.current = true
+          setAdminConfig(remoteConfig)
+          setAdminApiStatus(connectedStatus('Remote config loaded.'))
+        })
+        .catch((error) => {
+          if (cancelled) return
+          adminApiWritable.current = false
+          setAdminApiStatus(disconnectedStatus(error instanceof Error ? error.message : 'Admin API unavailable. Using local config.'))
+        })
+    }, 0)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!adminApiWritable.current) return undefined
+    const timeout = window.setTimeout(() => {
+      saveRemoteAdminConfig(adminConfig)
+        .then(() => setAdminApiStatus(connectedStatus('Config synced to proxy.')))
+        .catch((error) => {
+          adminApiWritable.current = false
+          setAdminApiStatus(disconnectedStatus(error instanceof Error ? error.message : 'Admin API sync failed. Saved locally.'))
+        })
+    }, 500)
+
+    return () => window.clearTimeout(timeout)
   }, [adminConfig])
 
   useEffect(() => {
@@ -494,6 +522,7 @@ function App() {
   if (route === 'admin') {
     return (
       <AdminPanel
+        adminApiStatus={adminApiStatus}
         config={adminConfig}
         health={health}
         onBack={openDashboard}

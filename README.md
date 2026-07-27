@@ -8,7 +8,7 @@ This README is the project manifest. Read it at the start of each task to stay a
 
 Active project: Enforge Command Center
 
-Current phase: Phase 5 active
+Current phase: Phase 6 active
 
 Build order:
 
@@ -17,6 +17,7 @@ Build order:
 3. Phase 3: Communications Hub wiring + Admin Panel - shipped
 4. Phase 4: 3D Sandbox - active / initial viewer shipped
 5. Phase 5: Ministry Panel - active / initial panel shipped
+6. Phase 6: Admin API + Lindy Integration - active / initial remote config shipped
 
 ## Recent Decisions
 
@@ -33,6 +34,7 @@ Build order:
 - Gmail and Google Calendar panels use safe link-out/deep-link behavior until a real OAuth-backed connector exists.
 - Phase 4 uses Three.js from a CDN at runtime so the main Vite bundle stays lighter. Models load client-side only and are not uploaded.
 - Phase 5 Ministry Panel reads through the Replit proxy. The public frontend never receives the Ministry Companion token.
+- Phase 6 stores dashboard config in the Replit proxy at `data/config.json` for Lindy/browser remote management, with browser `localStorage` fallback.
 
 ## Active Panels
 
@@ -93,7 +95,7 @@ Phase 2 status:
 
 ### Admin Panel
 
-Phase 3 status:
+Phase 6 status:
 
 - Admin panel is accessible from the dashboard settings control and `/admin`.
 - Panel visibility toggles shipped for Dashboard, Comms Hub, Coding Sandbox, Documents, Settings, 3D Sandbox, and Ministry.
@@ -101,7 +103,9 @@ Phase 3 status:
 - Theme toggle shipped with dark/light persistence.
 - API endpoint label editing shipped for ClearBid, Ministry Companion, and KIM.
 - Project card and document link add/remove/edit controls shipped.
-- Admin config saves to browser `localStorage`.
+- Admin config loads from `GET /api/admin/config` when the proxy is reachable.
+- Admin config autosaves to `POST /api/admin/config` and falls back to browser `localStorage` if the proxy is unreachable.
+- Admin panel shows connected/local-fallback sync status.
 
 ## Future Panels
 
@@ -186,6 +190,9 @@ Proxy endpoints:
 
 ```text
 GET /api/clearbid/estimates
+GET /api/admin/config
+POST /api/admin/config
+GET /api/admin/status
 GET /api/ministry/stats
 POST /api/ministry/hours
 GET /api/kim/status
@@ -206,6 +213,13 @@ MINISTRY_HOURS_PATH=/api/hours
 The proxy logs API calls to the Apps Script webhook when `USAGE_LOG_WEBHOOK_URL` is configured.
 
 The proxy source includes `POST /api/ministry/hours`, but the deployed Replit proxy must be redeployed after this repo change before the hours logging form can succeed in production.
+
+Admin API:
+
+- `GET /api/admin/config` returns panel order/visibility, theme, project cards, and document links.
+- `POST /api/admin/config` accepts partial config updates and atomically writes `proxy/data/config.json`.
+- `GET /api/admin/status` returns panel visibility, theme, content counts, proxy health, and last config update time for Lindy.
+- `proxy/data/` is intentionally ignored by git because it is runtime state.
 
 Current deployed proxy:
 
@@ -255,6 +269,7 @@ VITE_USAGE_LOG_ENDPOINT=${{ secrets.VITE_USAGE_LOG_ENDPOINT }}
 
 - Add a real Gmail/Calendar backend connector if live unread emails and live calendar events are required inside the dashboard.
 - Redeploy the Replit proxy so `POST /api/ministry/hours` is available in production.
+- Redeploy the Replit proxy after Phase 6 so Lindy can use `/api/admin/config` and `/api/admin/status`.
 - Confirm the Ministry Companion upstream hours endpoint path if it differs from `/api/hours`; set `MINISTRY_HOURS_PATH` in Replit if needed.
 - Add saved-scene reload/import controls if the localStorage 3D scene snapshot should become a reusable project file.
 - Add curated ROAM/Unreal/Blender model URLs when production assets are ready.
