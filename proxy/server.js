@@ -23,19 +23,19 @@ const upstreams = {
     baseUrl: process.env.CLEARBID_API_BASE || 'https://price-library.replit.app',
     token: env('CLEARBID_TOKEN', 'CLEARBIDTOKEN'),
     estimatesPath: process.env.CLEARBID_ESTIMATES_PATH || '/api/estimates',
-    healthPath: process.env.CLEARBID_HEALTH_PATH || '/api/health',
+    healthPath: process.env.CLEARBID_HEALTH_PATH || '/api/estimates',
   },
   ministry: {
     baseUrl: process.env.MINISTRY_API_BASE || 'https://ministry-companion.replit.app',
     token: env('MINISTRY_TOKEN', 'MINISTRYTOKEN'),
-    statsPath: process.env.MINISTRY_STATS_PATH || '/api/stats',
-    healthPath: process.env.MINISTRY_HEALTH_PATH || '/api/health',
+    statsPath: process.env.MINISTRY_STATS_PATH || '/api/sync',
+    healthPath: process.env.MINISTRY_HEALTH_PATH || '/api/sync',
   },
   kim: {
     baseUrl: process.env.KIM_API_BASE || 'https://kim-assistant.replit.app',
     token: env('KIM_TOKEN', 'KIMTOKEN'),
-    statusPath: process.env.KIM_STATUS_PATH || '/api/status',
-    healthPath: process.env.KIM_HEALTH_PATH || '/api/health',
+    statusPath: process.env.KIM_STATUS_PATH || '/api/events/briefing',
+    healthPath: process.env.KIM_HEALTH_PATH || '/api/events',
   },
 }
 
@@ -124,6 +124,41 @@ function sendUpstreamResult(response, result) {
   response.status(result.status).json(result.body)
 }
 
+function countItems(value) {
+  return Array.isArray(value) ? value.length : 0
+}
+
+function totalServiceHours(logs) {
+  if (!Array.isArray(logs)) return 0
+  return logs.reduce((sum, log) => {
+    const hours = Number(log.hours ?? log.durationHours ?? log.serviceHours ?? 0)
+    return Number.isFinite(hours) ? sum + hours : sum
+  }, 0)
+}
+
+function normalizeMinistryStats(payload) {
+  return {
+    serviceHours: totalServiceHours(payload.serviceLogs).toFixed(1),
+    returnVisits: countItems(payload.returnVisits),
+    studies: countItems(payload.studies),
+    visits: countItems(payload.visits),
+    households: countItems(payload.households),
+    raw: payload,
+  }
+}
+
+function normalizeKimStatus(payload) {
+  const groups = [payload.overdue, payload.today, payload.upcoming, payload.unscheduled]
+  const pendingTasks = groups.flatMap((group) => Array.isArray(group) ? group : [])
+
+  return {
+    status: pendingTasks.length > 0 ? 'active' : 'clear',
+    pendingTasks,
+    pendingTaskCount: pendingTasks.length,
+    briefing: payload,
+  }
+}
+
 app.get('/', (_request, response) => {
   response.json({
     name: 'Enforge Command Center Proxy',
@@ -138,12 +173,12 @@ app.get('/api/clearbid/estimates', async (_request, response) => {
 
 app.get('/api/ministry/stats', async (_request, response) => {
   const result = await callUpstream(upstreams.ministry, upstreams.ministry.statsPath, 'Ministry Companion API', 'Fetch ministry stats')
-  sendUpstreamResult(response, result)
+  response.status(result.status).json(result.ok ? normalizeMinistryStats(result.body) : result.body)
 })
 
 app.get('/api/kim/status', async (_request, response) => {
   const result = await callUpstream(upstreams.kim, upstreams.kim.statusPath, 'KIM Assistant API', 'Fetch KIM status')
-  sendUpstreamResult(response, result)
+  response.status(result.status).json(result.ok ? normalizeKimStatus(result.body) : result.body)
 })
 
 app.get('/api/health', async (_request, response) => {
