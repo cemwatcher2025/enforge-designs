@@ -8,14 +8,15 @@ This README is the project manifest. Read it at the start of each task to stay a
 
 Active project: Enforge Command Center
 
-Current phase: Phase 3 active
+Current phase: Phase 4 active
 
 Build order:
 
 1. Phase 1: Logistics Dashboard + Communications Hub - shipped
 2. Phase 2: Coding Sandbox + Documents - shipped
-3. Phase 3: Communications Hub wiring + Admin Panel - active / initial controls shipped
-4. Phase 4: 3D Viewer + Ministry Panel
+3. Phase 3: Communications Hub wiring + Admin Panel - shipped
+4. Phase 4: 3D Sandbox - active / initial viewer shipped
+5. Phase 5: Ministry Panel
 
 ## Recent Decisions
 
@@ -30,6 +31,7 @@ Build order:
 - Phase 2 should remain utility-focused: repository launch cards, active project selection, document index, and read-only deploy status.
 - Phase 3 admin changes use browser `localStorage` only. No backend database or public write token is committed.
 - Gmail and Google Calendar panels use safe link-out/deep-link behavior until a real OAuth-backed connector exists.
+- Phase 4 uses Three.js from a CDN at runtime so the main Vite bundle stays lighter. Models load client-side only and are not uploaded.
 
 ## Active Panels
 
@@ -104,12 +106,18 @@ Phase 3 status:
 
 ### 3D Viewer / 3D Sandbox
 
-Planned:
+Phase 4 status:
 
-- Unreal Engine exports
-- Blender renders
-- ROAM screenshots
-- Concept-art gallery
+- Three.js viewport shipped inside the configurable 3D Sandbox panel.
+- Orbit controls, grid floor, lighting, fog/background, and axes helper shipped.
+- Built-in preset scenes shipped: Empty grid, Primitives, and Terrain test.
+- Demo model buttons shipped for primitives, low-poly tree, simple building, and terrain.
+- `.glb` / `.gltf` URL loading and local file loading shipped.
+- Loaded models auto-center and auto-scale.
+- Wireframe toggle, axes toggle, reset camera, and PNG screenshot download shipped.
+- Animated model support shipped for the first animation clip with play/pause and timeline scrubber.
+- Scene object list and TransformControls shipped for selecting, moving, rotating, and scaling objects.
+- Scene save writes object transforms, colors, preset, wireframe state, and loaded model source to `localStorage`.
 
 ### Ministry Panel
 
@@ -239,6 +247,8 @@ VITE_USAGE_LOG_ENDPOINT=${{ secrets.VITE_USAGE_LOG_ENDPOINT }}
 ## Next Actions
 
 - Add a real Gmail/Calendar backend connector if live unread emails and live calendar events are required inside the dashboard.
+- Add saved-scene reload/import controls if the localStorage 3D scene snapshot should become a reusable project file.
+- Add curated ROAM/Unreal/Blender model URLs when production assets are ready.
 - Consider adding a GitHub Pages SPA fallback if direct refreshes on `/admin` need to work reliably.
 - Confirm final ClearBid and KIM source repo links if they exist outside the visible `cemwatcher2025` public repos.
 - Add ROAM project link when the Unreal project location is ready.

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { AdminPanel } from './components/AdminPanel'
 import { CommsHub } from './components/CommsHub'
+import { Sandbox3D } from './components/Sandbox3D'
 import { defaultAdminConfig, type Accent, type AdminConfig, type PanelId, type ServiceState } from './config'
 import { fetchDashboardData, type DashboardData } from './utils/commandCenterApi'
 import { logUsage, readUsageLog } from './utils/usageTracking'
@@ -137,6 +138,7 @@ function readAdminConfig(): AdminConfig {
       documents: parsed.documents ?? fallbackConfig.documents,
       panels: parsed.panels ?? fallbackConfig.panels,
       projects: parsed.projects ?? fallbackConfig.projects,
+      sandbox3d: parsed.sandbox3d ?? fallbackConfig.sandbox3d,
       theme: parsed.theme ?? fallbackConfig.theme,
     }
   } catch {
@@ -481,13 +483,7 @@ function App() {
     }
 
     if (id === 'sandbox3d') {
-      return (
-        <article className="panel future-panel">
-          <p className="eyebrow">Phase 4</p>
-          <h2>3D Sandbox</h2>
-          <p>Reserved module slot for Unreal exports, Blender renders, ROAM screenshots, and concept-art galleries.</p>
-        </article>
-      )
+      return <Sandbox3D sandboxConfig={adminConfig.sandbox3d} />
     }
 
     return (
@@ -518,13 +514,13 @@ function App() {
           <p className="eyebrow">Enforge Command Center</p>
           <h1>Logistics Dashboard + Communications Hub</h1>
           <p className="header-copy">
-            Phase 3 command surface for ClearBid, Ministry Companion, KIM, docs, repositories, schedule, and local admin controls.
+            Phase 4 command surface for ClearBid, Ministry Companion, KIM, docs, repositories, schedule, local admin controls, and 3D experiments.
           </p>
         </div>
         <div className="launch-card">
           <span className="launch-label">Deployment</span>
           <strong>enforgedesigns.com</strong>
-          <span>GitHub Pages · Custom domain · Phase 3</span>
+          <span>GitHub Pages · Custom domain · Phase 4</span>
           <button className="gear-button" aria-label="Open admin panel" onClick={openAdmin} type="button">⚙</button>
         </div>
       </header>

@@ -43,6 +43,20 @@ export type CommsConfig = {
   calendarUrl: string
 }
 
+export type SandboxPresetId = 'empty-grid' | 'primitives' | 'terrain-test'
+
+export type SandboxDemoModel = {
+  id: string
+  name: string
+  preset: SandboxPresetId
+  detail: string
+}
+
+export type Sandbox3DConfig = {
+  demoModels: SandboxDemoModel[]
+  presets: { id: SandboxPresetId; name: string; detail: string }[]
+}
+
 export type AdminConfig = {
   theme: ThemeMode
   activeProject: string
@@ -51,6 +65,7 @@ export type AdminConfig = {
   documents: DocumentLink[]
   apiEndpoints: ApiEndpointConfig[]
   comms: CommsConfig
+  sandbox3d: Sandbox3DConfig
 }
 
 export const defaultProjectLinks: ProjectLink[] = [
@@ -130,6 +145,20 @@ export const defaultCommsConfig: CommsConfig = {
   calendarUrl: 'https://calendar.google.com/calendar/u/0/r',
 }
 
+export const defaultSandbox3DConfig: Sandbox3DConfig = {
+  demoModels: [
+    { id: 'primitives', name: 'Primitives', preset: 'primitives', detail: 'Cube, sphere, cylinder, and torus test scene' },
+    { id: 'tree', name: 'Low-poly Tree', preset: 'primitives', detail: 'Simple geometric stand-in built in scene' },
+    { id: 'building', name: 'Simple Building', preset: 'primitives', detail: 'Block-out building form for scale checks' },
+    { id: 'terrain', name: 'Terrain Test', preset: 'terrain-test', detail: 'Lightweight heightmap terrain' },
+  ],
+  presets: [
+    { id: 'empty-grid', name: 'Empty grid', detail: 'Clean floor, lights, and camera' },
+    { id: 'primitives', name: 'Primitives', detail: 'Basic shapes arranged for material and transform tests' },
+    { id: 'terrain-test', name: 'Terrain test', detail: 'Simple procedural height field' },
+  ],
+}
+
 export const defaultAdminConfig: AdminConfig = {
   activeProject: 'enforge',
   apiEndpoints: defaultApiEndpoints,
@@ -137,5 +166,6 @@ export const defaultAdminConfig: AdminConfig = {
   documents: defaultDocumentLinks,
   panels: defaultPanels,
   projects: defaultProjectLinks,
+  sandbox3d: defaultSandbox3DConfig,
   theme: 'dark',
 }
