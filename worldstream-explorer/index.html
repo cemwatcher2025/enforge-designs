@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Worldstream Explorer</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="start" class="panel">
+    <div class="eyebrow">THE LIVING EXPEDITION // CHAPTER ONE</div>
+    <h1>WORLDSTREAM</h1>
+    <p>Cross living biomes and descend beneath the world. Terrain streams into existence as you approach and look toward it.</p>
+    <button id="enter">ENTER THE WILDS</button>
+    <div class="controls">
+      <span><b>WASD</b> move</span><span><b>MOUSE / DRAG</b> look</span><span><b>ARROWS</b> pan</span>
+      <span><b>SHIFT</b> sprint</span><span><b>SPACE</b> jump</span><span><b>E</b> interact</span>
+      <span><b>Q</b> scanner</span><span><b>F</b> lantern</span><span><b>J</b> journal</span><span><b>1–5</b> world gates</span>
+      <span><b>M</b> survey map</span><span><b>R</b> place / recover beacon</span><span><b>X</b> rope</span><span><b>C</b> climbing picks</span>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="brand"><small>WORLDSTREAM</small><strong id="biome">VERDANT REACH</strong></div>
+    <div class="readout">
+      <span id="altitude">ALT 000</span>
+      <span id="coords">X 000 · Z 000</span>
+      <span id="chunks">STREAM 0</span>
+    </div>
+    <div id="compass">
+      <div id="compass-ribbon"></div>
+      <div id="compass-pointer">▾</div>
+      <div id="compass-heading">000° N</div>
+    </div>
+    <div id="vitals">
+      <div><span>VIGOR</span><i><b id="stamina-bar"></b></i></div>
+      <div><span>AIR</span><i><b id="air-bar"></b></i></div>
+      <div><span>LORE</span><strong id="lore-count">000</strong></div>
+    </div>
+    <div id="tools">
+      <span id="tool-scanner">Q SCANNER</span>
+      <span id="tool-lantern">F LANTERN</span>
+      <span id="tool-map">M SURVEY MAP</span>
+      <span id="tool-marker">R BEACON · 6</span>
+      <span id="tool-rope">X ROPE</span>
+      <span id="tool-picks">C PICKS</span>
+      <span id="controller-state">INPUT: KEYBOARD</span>
+      <span id="wildlife-count">FAUNA: SEARCHING</span>
+    </div>
+    <div id="expedition">
+      <small>EXPEDITION SIGNAL</small>
+      <strong id="signal">SEARCHING...</strong>
+      <span id="bearing">◇ 0m · 0/15 DISCOVERED</span>
+    </div>
+    <div id="crosshair"></div>
+    <div id="hazard-alert" class="hidden"><small>ENVIRONMENTAL THREAT</small><strong id="hazard-name">CLEAR</strong><i><b id="hazard-bar"></b></i></div>
+    <div id="interaction" class="hidden"><kbd>E</kbd><span id="interaction-text">INTERACT</span></div>
+    <div id="notice">World gate synchronized</div>
+    <aside id="plaque" class="hidden">
+      <div class="plaque-kicker">WORLDSTREAM FIELD ARCHIVE</div>
+      <h2 id="plaque-name">SITE NAME</h2>
+      <div class="plaque-meta">
+        <span id="plaque-kind">CLASSIFICATION</span>
+        <span id="plaque-coords">X 000 · Z 000</span>
+      </div>
+      <p id="plaque-story"></p>
+      <small>APPROACH RECORDED · EXPEDITION DATABASE</small>
+    </aside>
+    <aside id="quest">
+      <small>CURRENT PATH</small>
+      <strong id="quest-title">THE WORLD REMEMBERS</strong>
+      <span id="quest-text">Discover one secret in every realm.</span>
+      <div id="quest-progress"><i></i></div>
+    </aside>
+    <div id="gates">
+      <button data-gate="1"><i>1</i> Verdant</button>
+      <button data-gate="2"><i>2</i> Dunes</button>
+      <button data-gate="3"><i>3</i> Tundra</button>
+      <button data-gate="4"><i>4</i> Ember</button>
+      <button data-gate="5"><i>5</i> Below</button>
+    </div>
+  </div>
+
+  <section id="puzzle" class="modal hidden">
+    <div class="modal-card">
+      <small id="puzzle-kicker">WORLD ACTIVITY</small>
+      <h2 id="puzzle-title">LISTEN TO THE WORLD</h2>
+      <p id="puzzle-prompt"></p>
+      <div id="ritual-sequence" class="hidden"></div>
+      <div id="puzzle-options"></div>
+      <button id="puzzle-cancel">STEP AWAY</button>
+    </div>
+  </section>
+
+  <section id="pause" class="modal hidden">
+    <div class="modal-card settings-card">
+      <small>EXPEDITION SUSPENDED</small>
+      <h2>PAUSE</h2>
+      <label>LOOK SENSITIVITY <input id="setting-sensitivity" type="range" min="0.5" max="2" step="0.05" value="1"></label>
+      <label>MASTER AUDIO <input id="setting-volume" type="range" min="0" max="1" step="0.05" value="0.55"></label>
+      <label>VIEW DISTANCE <input id="setting-distance" type="range" min="3" max="6" step="1" value="5"></label>
+      <label><input id="setting-motion" type="checkbox" checked> ATMOSPHERIC MOTION</label>
+      <label>SAVE SLOT
+        <select id="save-slot"><option value="1">SLOT 1</option><option value="2">SLOT 2</option><option value="3">SLOT 3</option></select>
+      </label>
+      <button id="resume">RETURN TO WORLD</button>
+      <button id="save-now">SAVE EXPEDITION</button>
+      <button id="load-slot">LOAD SELECTED SLOT</button>
+    </div>
+  </section>
+
+  <section id="ending" class="modal hidden">
+    <div class="modal-card ending-card">
+      <small>THE THIRTY-FIRST MEMORY</small>
+      <h2>THE WORLDHEART</h2>
+      <p id="ending-text">You came seeking places. The places were seeking a witness.</p>
+      <div id="ending-stats"></div>
+      <strong id="ending-title">THE WORLDSTREAM REMEMBERS YOU.</strong>
+      <button id="continue-ending">CONTINUE WANDERING</button>
+    </div>
+  </section>
+
+  <section id="journal" class="hidden">
+    <div class="journal-shell">
+      <button id="journal-close">×</button>
+      <div class="journal-head">
+        <small>WORLDSTREAM EXPEDITION ARCHIVE</small>
+        <h2>FIELD JOURNAL</h2>
+        <p id="journal-summary">The world is waiting to be remembered.</p>
+      </div>
+      <div id="journal-grid"></div>
+      <div class="journal-foot"><span>Press J to return</span><strong id="journal-score">0 / 15 SITES</strong></div>
+    </div>
+  </section>
+
+  <section id="survey-map" class="hidden">
+    <div class="map-shell">
+      <div class="map-head">
+        <div><small>LIVE CARTOGRAPHY // FOG OF DISCOVERY</small><h2>EXPEDITION SURVEY</h2></div>
+        <button id="map-close">×</button>
+      </div>
+      <canvas id="map-canvas" width="900" height="560"></canvas>
+      <div class="map-legend">
+        <span><i class="you"></i>YOU</span><span><i class="route"></i>SURVEYED ROUTE</span>
+        <span><i class="beacon"></i>BEACON</span><span><i class="objective"></i>LOCATIONS / UNKNOWN SIGNALS</span>
+        <strong id="map-status">0% CHARTED</strong>
+      </div>
+    </div>
+  </section>
+
+  <div id="vignette"></div>
+  <script type="module" src="./game.js"></script>
+</body>
+</html>

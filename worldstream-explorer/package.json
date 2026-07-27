@@ -1,0 +1,16 @@
+{
+  "name": "worldstream-explorer",
+  "version": "1.0.0",
+  "description": "A standalone first-person procedural adventure rendered with Three.js and PBR materials.",
+  "main": "game.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "three": "^0.185.0"
+  }
+}

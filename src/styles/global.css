@@ -1362,6 +1362,61 @@ button {
   font-family: "Courier New", monospace;
 }
 
+.arrival-board {
+  display: grid;
+  gap: 6px;
+  margin: 18px 0 20px;
+  padding: 12px;
+  border: 2px solid #2f2f2f;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    #090909;
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.72);
+  font-family: "Courier New", monospace;
+}
+
+.arrival-board-header,
+.arrival-row {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.8fr) minmax(96px, 0.65fr) minmax(180px, 1.55fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.arrival-board-header {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.arrival-row {
+  min-height: 38px;
+  color: #f4eecf;
+}
+
+.arrival-row strong,
+.arrival-row span,
+.arrival-row p {
+  margin: 0;
+  padding: 8px 9px;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 2px 7px),
+    #161616;
+}
+
+.arrival-row strong {
+  color: #ffe68a;
+}
+
+.arrival-row span {
+  color: #91d8ff;
+}
+
+.arrival-row p {
+  color: #dceee0;
+}
+
 .rare-train {
   color: #111;
   background: #ffe68a;
@@ -1500,6 +1555,28 @@ button {
   position: relative;
 }
 
+.waiting-status {
+  position: absolute;
+  z-index: 3;
+  top: 92px;
+  left: clamp(190px, 31vw, 330px);
+  right: clamp(178px, 24vw, 240px);
+  min-height: 92px;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.waiting-status p {
+  margin: 0;
+  padding: 10px 14px;
+  background: rgba(238, 233, 217, 0.82);
+  border: 1px solid rgba(45, 42, 36, 0.28);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+}
+
 .waiting-page .chairs::before {
   content: "";
   position: absolute;
@@ -1572,20 +1649,53 @@ button {
   background: rgba(238, 233, 217, 0.82);
 }
 
-.magazine {
-  max-width: 360px;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.18), transparent 42%),
-    #ddd15d;
+.room button.magazine {
+  width: min(292px, 56vw);
+  min-height: 382px;
+  background: #efe5c6;
   color: #1f1b15;
   border: 1px solid rgba(0, 0, 0, 0.35);
   box-shadow: 8px 10px 0 rgba(0, 0, 0, 0.18);
   transform: rotate(-1deg);
   position: relative;
   z-index: 2;
+  display: grid;
+  grid-template-rows: 1fr auto auto auto;
+  gap: 8px;
+  padding: 12px;
+  text-align: left;
+  overflow: hidden;
+  margin-top: 168px;
+  margin-left: 8px;
 }
 
-.chairs p,
+.room button.magazine img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border: 1px solid rgba(31, 27, 21, 0.22);
+  background: #d7caa8;
+}
+
+.room button.magazine span {
+  color: #675b43;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.room button.magazine strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(22px, 4.8vw, 32px);
+  line-height: 0.95;
+}
+
+.room button.magazine em {
+  font-style: normal;
+  line-height: 1.35;
+  color: #3f3728;
+}
+
 .chairs > button:not(.magazine) {
   position: relative;
   z-index: 2;
