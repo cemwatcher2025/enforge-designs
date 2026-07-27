@@ -8,7 +8,7 @@ This README is the project manifest. Read it at the start of each task to stay a
 
 Active project: Enforge Command Center
 
-Current phase: Phase 4 active
+Current phase: Phase 5 active
 
 Build order:
 
@@ -16,7 +16,7 @@ Build order:
 2. Phase 2: Coding Sandbox + Documents - shipped
 3. Phase 3: Communications Hub wiring + Admin Panel - shipped
 4. Phase 4: 3D Sandbox - active / initial viewer shipped
-5. Phase 5: Ministry Panel
+5. Phase 5: Ministry Panel - active / initial panel shipped
 
 ## Recent Decisions
 
@@ -32,6 +32,7 @@ Build order:
 - Phase 3 admin changes use browser `localStorage` only. No backend database or public write token is committed.
 - Gmail and Google Calendar panels use safe link-out/deep-link behavior until a real OAuth-backed connector exists.
 - Phase 4 uses Three.js from a CDN at runtime so the main Vite bundle stays lighter. Models load client-side only and are not uploaded.
+- Phase 5 Ministry Panel reads through the Replit proxy. The public frontend never receives the Ministry Companion token.
 
 ## Active Panels
 
@@ -121,13 +122,15 @@ Phase 4 status:
 
 ### Ministry Panel
 
-Planned:
+Phase 5 status:
 
-- Service hours tracker
-- Return visits list
-- Bible studies in progress
-- Territory map or notes
-- Daily text display
+- Current-month hours, return visits, Bible studies, previous-month comparison, YTD hours, average monthly hours, and publisher count cards shipped.
+- Recent activity feed shipped with date, type, hours, and notes.
+- Return visits list shipped with contact name, last visit date, and active / needs follow-up / paused status.
+- Bible studies list shipped with contact name, progress, and last study date.
+- Hours logging form shipped for date, hours, type, and notes.
+- Frontend uses `GET /api/ministry/stats` and `POST /api/ministry/hours` through `VITE_COMMAND_CENTER_PROXY_URL`.
+- Loading, retry/error, and empty states shipped.
 
 ## Integration References
 
@@ -184,6 +187,7 @@ Proxy endpoints:
 ```text
 GET /api/clearbid/estimates
 GET /api/ministry/stats
+POST /api/ministry/hours
 GET /api/kim/status
 GET /api/health
 ```
@@ -196,9 +200,12 @@ MINISTRY_TOKEN
 KIM_TOKEN
 USAGE_LOG_WEBHOOK_URL
 ALLOWED_ORIGINS=https://enforgedesigns.com,http://localhost:5173,http://127.0.0.1:5173
+MINISTRY_HOURS_PATH=/api/hours
 ```
 
 The proxy logs API calls to the Apps Script webhook when `USAGE_LOG_WEBHOOK_URL` is configured.
+
+The proxy source includes `POST /api/ministry/hours`, but the deployed Replit proxy must be redeployed after this repo change before the hours logging form can succeed in production.
 
 Current deployed proxy:
 
@@ -247,6 +254,8 @@ VITE_USAGE_LOG_ENDPOINT=${{ secrets.VITE_USAGE_LOG_ENDPOINT }}
 ## Next Actions
 
 - Add a real Gmail/Calendar backend connector if live unread emails and live calendar events are required inside the dashboard.
+- Redeploy the Replit proxy so `POST /api/ministry/hours` is available in production.
+- Confirm the Ministry Companion upstream hours endpoint path if it differs from `/api/hours`; set `MINISTRY_HOURS_PATH` in Replit if needed.
 - Add saved-scene reload/import controls if the localStorage 3D scene snapshot should become a reusable project file.
 - Add curated ROAM/Unreal/Blender model URLs when production assets are ready.
 - Consider adding a GitHub Pages SPA fallback if direct refreshes on `/admin` need to work reliably.
