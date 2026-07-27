@@ -1,10 +1,147 @@
-# Puzzle Box Website
+# Enforge Command Center
 
-A strange interactive puzzle-box website built with React, Vite, TypeScript, and React Router.
+Web-based mission control dashboard hosted at `enforgedesigns.com`.
 
-This is a mysterious digital place somewhere between a 90s terminal, an escape room, an ARG, a dream, and a haunted operating system. It includes sixteen interconnected rooms, hidden terminal commands, localStorage-backed discovery state, and page-specific interactions.
+This README is the project manifest. Read it at the start of each task to stay aligned with Brandon's current priorities, phases, integration status, and decisions.
 
-The visual system uses lightweight CSS-built artifact icons for room labels, desktop objects, archive drawers, books, and dream symbols. K.I.M. uses a CSS-built 3D wireframe head with delayed gaze tracking, idle study behavior, and subtle ambient field effects. No external 3D icon package or paid asset source is required.
+## Current Phase
+
+Active project: Enforge Command Center
+
+Current phase: Phase 1 MVP
+
+Build order:
+
+1. Phase 1: Logistics Dashboard + Communications Hub
+2. Phase 2: Coding Sandbox + Documents
+3. Phase 3: 3D Viewer + Ministry Panel
+4. Phase 4: Settings bar, usage tracking dashboard, README integration
+
+## Recent Decisions
+
+- The previous puzzle-box website content has been replaced on the shipped webpage.
+- Phase 1 builds the Logistics Dashboard and Communications Hub first.
+- Dark theme is required by default.
+- Use bold, high-contrast accent colors.
+- Avoid earth tones and pastels.
+- No public authentication is required initially because Brandon is the only user.
+- Do not commit API tokens, bearer tokens, or private keys to this repository.
+- Public GitHub Pages frontend code must call secure backend proxies or approved webhook endpoints, not private service APIs directly with embedded secrets.
+
+## Active Panels
+
+### Logistics Dashboard
+
+Purpose:
+
+- ClearBid estimate volume and status
+- Ministry Companion hours, return visits, and studies
+- KIM status and pending tasks
+- Calendar/schedule summary
+- API status indicators
+
+Phase 1 status:
+
+- UI shell built.
+- Connection status cards built.
+- Live API data pending secure proxy configuration.
+
+### Communications Hub
+
+Purpose:
+
+- Email triage status
+- Slack or message status if connected
+- Lindy conversation/action status
+- Quick-reply staging
+
+Phase 1 status:
+
+- UI shell built.
+- Quick-reply draft box built.
+- Local usage logging built.
+- Sending/reply actions disabled until connectors are configured.
+
+## Future Panels
+
+### Coding Sandbox
+
+Planned:
+
+- Quick links for ClearBid, Ministry Companion, KIM, Enforge Designs, and ROAM
+- Terminal output viewer
+- Active project file browser
+
+### Documents
+
+Planned:
+
+- Google Docs viewer/editor links
+- Key docs index
+- Searchable spec and meeting-note references
+
+### 3D Viewer
+
+Planned:
+
+- Unreal Engine exports
+- Blender renders
+- ROAM screenshots
+- Concept-art gallery
+
+### Ministry Panel
+
+Planned:
+
+- Service hours tracker
+- Return visits list
+- Bible studies in progress
+- Territory map or notes
+- Daily text display
+
+## Integration References
+
+Store real secrets outside this repo. Use environment variables, GitHub Actions secrets, backend proxy secrets, or service-specific secret stores.
+
+Known service endpoints:
+
+| Service | Endpoint | Status |
+| --- | --- | --- |
+| ClearBid | `https://price-library.replit.app` | Pending secure proxy |
+| Ministry Companion | `https://ministry-companion.replit.app` | Pending secure proxy |
+| KIM Assistant | `https://kim-assistant.replit.app` | Pending secure proxy |
+| ElevenLabs | ElevenLabs API | Pending secure proxy |
+| Lindy | `https://chat.lindy.ai` | Manual/link-out; no public API currently |
+
+Required frontend environment variable for usage logging:
+
+```text
+VITE_USAGE_LOG_ENDPOINT=https://script.google.com/macros/s/.../exec
+```
+
+## Usage Tracking
+
+Target system: Google Sheet
+
+Required columns:
+
+- Timestamp
+- API/service called
+- Purpose of call
+- Cost, if applicable
+- Success/failure
+
+Current implementation:
+
+- `src/utils/usageTracking.ts` stores usage entries in `localStorage`.
+- If `VITE_USAGE_LOG_ENDPOINT` is configured, usage entries are also posted to that endpoint.
+- A Google Apps Script or backend proxy should receive those posts and append rows to the Google Sheet.
+
+## README Update Policy
+
+Brandon can update this README manually when project state changes.
+
+Automatic README updates from the public dashboard are not enabled because that would require a GitHub write token in the browser, which is not acceptable for a public static site. If automatic README updates become required, build a server-side writer that uses a private GitHub token and exposes only narrow, authenticated update actions.
 
 ## Setup
 
@@ -19,125 +156,26 @@ npm run dev
 npm run build
 ```
 
-## GitHub Pages
+## Deploy
 
-This project includes a GitHub Actions workflow at `.github/workflows/deploy-pages.yml`.
-Pushes to `main` run lint, build the Vite app, and deploy `dist/` to GitHub Pages.
+The project deploys to GitHub Pages from `.github/workflows/deploy-pages.yml`.
 
-In the repository settings, set Pages source to **GitHub Actions**.
-
-The production deployment is configured for the custom domain `enforgedesigns.com`. The Pages build sets Vite's base path to `/`, and `public/CNAME` records the intended domain in the repository. Because this project deploys with a custom GitHub Actions workflow, the custom domain still needs to be set in the repository's Pages settings.
-
-To finish connecting the domain:
-
-1. In GitHub, open **Settings > Pages** for `cemwatcher2025/enforge-designs`.
-2. Set **Custom domain** to `enforgedesigns.com`.
-3. At the DNS provider for `enforgedesigns.com`, add the GitHub Pages apex `A` records:
+Production domain:
 
 ```text
-185.199.108.153
-185.199.109.153
-185.199.110.153
-185.199.111.153
+enforgedesigns.com
 ```
 
-4. Add a `CNAME` record for `www` pointing to `cemwatcher2025.github.io`.
-5. After DNS verifies in GitHub Pages, enable **Enforce HTTPS**.
+The workflow builds with:
 
-## Routes
-
-- `/terminal`
-- `/corridor`
-- `/kim`
-- `/desktop`
-- `/library`
-- `/observatory`
-- `/elevator`
-- `/archive`
-- `/aquarium`
-- `/radio`
-- `/train-station`
-- `/gallery`
-- `/machine`
-- `/mirror`
-- `/waiting-room`
-- `/dream`
-
-`/` redirects to `/terminal`.
-
-## Notes
-
-Discovery state is stored in `localStorage` under `puzzle-box-discovery-v1`. The terminal supports visible and hidden commands, and several rooms alter other rooms through the shared discovery system.
-
-## Assistant Navigation API
-
-The app exposes a browser-side API at `window.PuzzleBoxAPI` for AI assistants, browser automation, or debugging tools. It does not require a backend.
-
-Examples:
-
-```js
-window.PuzzleBoxAPI.go("library")
-window.PuzzleBoxAPI.go("/radio")
-window.PuzzleBoxAPI.command("kim")
-window.PuzzleBoxAPI.discoverCommand("observer")
-window.PuzzleBoxAPI.solveDoor("combination")
-window.PuzzleBoxAPI.setMachineSetting("waterValve", true)
-window.PuzzleBoxAPI.getStatus()
-window.PuzzleBoxAPI.reset()
+```text
+GITHUB_PAGES=true
+CUSTOM_DOMAIN=true
 ```
 
-Some browser automation sandboxes block custom properties on `window`. For those cases, the app also supports a DOM event API:
+## Next Actions
 
-```js
-document.dispatchEvent(new CustomEvent("puzzlebox:api", {
-  detail: { id: "move-1", action: "go", target: "library" }
-}))
-
-document.addEventListener("puzzlebox:api-result", (event) => {
-  console.log(event.detail)
-})
-```
-
-DOM actions:
-
-- `{ action: "go", target: "library" }`
-- `{ action: "command", command: "kim" }`
-- `{ action: "discoverCommand", command: "observer" }`
-- `{ action: "solveDoor", door: "combination" }`
-- `{ action: "setMachineSetting", key: "waterValve", value: true }`
-- `{ action: "status" }`
-- `{ action: "reset" }`
-
-The current API state is also mirrored in the DOM:
-
-```js
-document.querySelector("#puzzlebox-api-state")?.textContent
-```
-
-Available helpers:
-
-- `rooms`: list of supported room names and aliases.
-- `currentPath()`: returns the active route path.
-- `currentRoom()`: returns the current room label.
-- `getState()`: returns a copy of discovery/localStorage state.
-- `getStatus()`: returns current path, current room, room list, and discovery state.
-- `go(roomOrPath)`: navigates to a room name, alias, or route path.
-- `command(command)`: runs terminal-style navigation commands such as `kim`, `desktop`, `library`, `mirror`, `dream`, `wait`, and `explore`.
-- `discoverCommand(command)`: marks a command discovered.
-- `solveDoor(door)`: marks a door solved.
-- `setMachineSetting(key, value)`: updates a machine setting.
-- `reset()`: resets discovery state.
-
-The API dispatches browser events:
-
-- `puzzlebox:navigation`
-- `puzzlebox:command`
-- `puzzlebox:state`
-
-Example event listener:
-
-```js
-window.PuzzleBoxAPI.on("puzzlebox:navigation", (event) => {
-  console.log(event.detail)
-})
-```
+- Configure Google Sheet logging endpoint.
+- Decide whether ClearBid, Ministry Companion, and KIM APIs will be accessed through one shared proxy or separate proxy endpoints.
+- Add live status polling after proxy endpoints are available.
+- Build Phase 2 panels after Phase 1 data flow is stable.
