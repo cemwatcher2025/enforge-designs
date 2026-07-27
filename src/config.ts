@@ -57,6 +57,12 @@ export type Sandbox3DConfig = {
   presets: { id: SandboxPresetId; name: string; detail: string }[]
 }
 
+export type MinistryPanelConfig = {
+  emptyState: string
+  refreshLabel: string
+  title: string
+}
+
 export type AdminConfig = {
   theme: ThemeMode
   activeProject: string
@@ -65,6 +71,7 @@ export type AdminConfig = {
   documents: DocumentLink[]
   apiEndpoints: ApiEndpointConfig[]
   comms: CommsConfig
+  ministry: MinistryPanelConfig
   sandbox3d: Sandbox3DConfig
 }
 
@@ -159,11 +166,18 @@ export const defaultSandbox3DConfig: Sandbox3DConfig = {
   ],
 }
 
+export const defaultMinistryPanelConfig: MinistryPanelConfig = {
+  emptyState: 'Ministry Companion data refreshes when this panel opens. Empty lists mean the API returned no records for that section.',
+  refreshLabel: 'Refresh',
+  title: 'Ministry Panel',
+}
+
 export const defaultAdminConfig: AdminConfig = {
   activeProject: 'enforge',
   apiEndpoints: defaultApiEndpoints,
   comms: defaultCommsConfig,
   documents: defaultDocumentLinks,
+  ministry: defaultMinistryPanelConfig,
   panels: defaultPanels,
   projects: defaultProjectLinks,
   sandbox3d: defaultSandbox3DConfig,

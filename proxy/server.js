@@ -28,6 +28,7 @@ const upstreams = {
   ministry: {
     baseUrl: process.env.MINISTRY_API_BASE || 'https://ministry-companion.replit.app',
     token: env('MINISTRY_TOKEN', 'MINISTRYTOKEN'),
+    hoursPath: process.env.MINISTRY_HOURS_PATH || '/api/hours',
     statsPath: process.env.MINISTRY_STATS_PATH || '/api/sync',
     healthPath: process.env.MINISTRY_HEALTH_PATH || '/api/sync',
   },
@@ -76,7 +77,7 @@ async function logUsage(service, purpose, success, cost = '$0.00') {
   }
 }
 
-async function callUpstream({ baseUrl, token }, path, service, purpose) {
+async function callUpstream({ baseUrl, token }, path, service, purpose, options = {}) {
   if (!token) {
     await logUsage(service, purpose, false)
     return {
@@ -89,10 +90,13 @@ async function callUpstream({ baseUrl, token }, path, service, purpose) {
   const startedAt = Date.now()
   try {
     const response = await fetch(joinUrl(baseUrl, path), {
+      body: options.body ? JSON.stringify(options.body) : undefined,
       headers: {
         Accept: 'application/json',
         Authorization: `Bearer ${token}`,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       },
+      method: options.method || 'GET',
     })
     const text = await response.text()
     let body
@@ -143,6 +147,9 @@ function normalizeMinistryStats(payload) {
     studies: countItems(payload.studies),
     visits: countItems(payload.visits),
     households: countItems(payload.households),
+    serviceLogs: Array.isArray(payload.serviceLogs) ? payload.serviceLogs : [],
+    returnVisitList: Array.isArray(payload.returnVisits) ? payload.returnVisits : [],
+    studyList: Array.isArray(payload.studies) ? payload.studies : [],
     raw: payload,
   }
 }
@@ -162,7 +169,7 @@ function normalizeKimStatus(payload) {
 app.get('/', (_request, response) => {
   response.json({
     name: 'Enforge Command Center Proxy',
-    endpoints: ['/api/health', '/api/clearbid/estimates', '/api/ministry/stats', '/api/kim/status'],
+    endpoints: ['/api/health', '/api/clearbid/estimates', '/api/ministry/stats', '/api/ministry/hours', '/api/kim/status'],
   })
 })
 
@@ -174,6 +181,17 @@ app.get('/api/clearbid/estimates', async (_request, response) => {
 app.get('/api/ministry/stats', async (_request, response) => {
   const result = await callUpstream(upstreams.ministry, upstreams.ministry.statsPath, 'Ministry Companion API', 'Fetch ministry stats')
   response.status(result.status).json(result.ok ? normalizeMinistryStats(result.body) : result.body)
+})
+
+app.post('/api/ministry/hours', async (request, response) => {
+  const result = await callUpstream(
+    upstreams.ministry,
+    upstreams.ministry.hoursPath,
+    'Ministry Companion API',
+    'Log ministry hours',
+    { body: request.body, method: 'POST' },
+  )
+  response.status(result.status).json(result.body)
 })
 
 app.get('/api/kim/status', async (_request, response) => {
