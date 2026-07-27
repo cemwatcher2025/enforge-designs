@@ -210,7 +210,7 @@ The proxy source includes `POST /api/ministry/hours`, but the deployed Replit pr
 Current deployed proxy:
 
 ```text
-https://6fe69d33-0bff-4719-8df9-53c6632de252-00-2q7ny16s3ml59.kirk.replit.dev
+https://enforge-command-center-proxy.replit.app
 ```
 
 ## README Update Policy
