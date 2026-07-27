@@ -28,12 +28,12 @@ export async function logUsage(entry: Omit<UsageLogEntry, 'timestamp'>) {
   const nextLog = [usageEntry, ...readUsageLog()].slice(0, 200)
   window.localStorage.setItem(storageKey, JSON.stringify(nextLog))
 
-  const endpoint = import.meta.env.VITE_USAGE_LOG_ENDPOINT
+  const endpoint = import.meta.env.VITE_USAGE_LOG_ENDPOINT ?? import.meta.env.VITEUSAGELOG_ENDPOINT
   if (!endpoint) return usageEntry
 
   await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(usageEntry),
   })
 

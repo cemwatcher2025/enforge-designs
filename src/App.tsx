@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchDashboardData, type DashboardData } from './utils/commandCenterApi'
 import { logUsage, readUsageLog } from './utils/usageTracking'
 
 type ServiceState = 'online' | 'pending' | 'offline'
 
 type Service = {
+  id: string
   name: string
   endpoint: string
   state: ServiceState
@@ -33,26 +35,30 @@ type UsageRow = {
 
 const services: Service[] = [
   {
+    id: 'clearbid',
     name: 'ClearBid',
-    endpoint: 'https://price-library.replit.app',
+    endpoint: '/api/clearbid/estimates',
     state: 'pending',
     purpose: 'Estimates, job volume, pricing status',
   },
   {
+    id: 'ministry',
     name: 'Ministry Companion',
-    endpoint: 'https://ministry-companion.replit.app',
+    endpoint: '/api/ministry/stats',
     state: 'pending',
     purpose: 'Hours, return visits, studies',
   },
   {
+    id: 'kim',
     name: 'KIM Assistant',
-    endpoint: 'https://kim-assistant.replit.app',
+    endpoint: '/api/kim/status',
     state: 'pending',
     purpose: 'Task status, recent actions, assistant health',
   },
   {
+    id: 'usage',
     name: 'Google Workspace',
-    endpoint: 'Google Sheets / Gmail / Calendar',
+    endpoint: 'Usage webhook / Google Sheet',
     state: 'pending',
     purpose: 'Usage tracking, comms, schedule',
   },
@@ -64,6 +70,17 @@ const logisticsMetrics: LogisticsMetric[] = [
   { label: 'Ministry hours', value: '0.0', detail: 'Current month placeholder', accent: 'lime' },
   { label: 'KIM pending tasks', value: '0', detail: 'Assistant feed not connected', accent: 'orange' },
 ]
+
+function metricsFromDashboard(data: DashboardData | null): LogisticsMetric[] {
+  if (!data) return logisticsMetrics
+
+  return [
+    { label: 'ClearBid volume', value: data.clearbidVolume, detail: data.details.clearbid, accent: 'cyan' },
+    { label: 'Open estimates', value: data.openEstimates, detail: 'Recent estimates from proxy', accent: 'magenta' },
+    { label: 'Ministry hours', value: data.ministryHours, detail: data.details.ministry, accent: 'lime' },
+    { label: 'KIM pending tasks', value: data.kimPendingTasks, detail: data.details.kim, accent: 'orange' },
+  ]
+}
 
 const messages: Message[] = [
   { source: 'Email', subject: 'Unread inbox count', status: 'Waiting on Gmail connector', age: 'pending' },
@@ -96,6 +113,8 @@ function App() {
   const [usageCount, setUsageCount] = useState(() => readUsageLog().length)
   const [replyDraft, setReplyDraft] = useState('')
   const [replyStatus, setReplyStatus] = useState('No reply staged yet.')
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+  const [liveDataStatus, setLiveDataStatus] = useState('Live data not loaded yet.')
   const currentUsageRows = useMemo(
     () =>
       usageRows.map((row) =>
@@ -105,6 +124,38 @@ function App() {
       ),
     [usageCount],
   )
+  const currentMetrics = useMemo(() => metricsFromDashboard(dashboardData), [dashboardData])
+  const currentServices = useMemo(
+    () =>
+      services.map((service) => ({
+        ...service,
+        state: service.id === 'usage' && usageCount > 0 ? 'online' : dashboardData?.health[service.id] ?? service.state,
+      })),
+    [dashboardData, usageCount],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadDashboard() {
+      try {
+        const data = await fetchDashboardData()
+        if (cancelled) return
+        setDashboardData(data)
+        setLiveDataStatus(data.error ?? 'Live data loaded from proxy.')
+      } catch (error) {
+        if (cancelled) return
+        setLiveDataStatus(error instanceof Error ? error.message : 'Live data unavailable.')
+      }
+    }
+
+    void loadDashboard()
+    const interval = window.setInterval(loadDashboard, 60000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [])
 
   async function stageReply() {
     const purpose = replyDraft.trim() ? 'Stage communications reply draft' : 'Stage empty communications check'
@@ -135,7 +186,7 @@ function App() {
       </header>
 
       <section className="status-strip" aria-label="Service connection status">
-        {services.map((service) => (
+        {currentServices.map((service) => (
           <article className="status-pill" data-state={service.state} key={service.name}>
             <span className="status-dot" />
             <div>
@@ -157,7 +208,7 @@ function App() {
           </div>
 
           <div className="metric-grid">
-            {logisticsMetrics.map((metric) => (
+            {currentMetrics.map((metric) => (
               <div className="metric-card" data-accent={metric.accent} key={metric.label}>
                 <span>{metric.label}</span>
                 <strong>{metric.value}</strong>
@@ -167,7 +218,7 @@ function App() {
           </div>
 
           <div className="service-list">
-            {services.slice(0, 3).map((service) => (
+            {currentServices.slice(0, 3).map((service) => (
               <div className="service-row" key={service.name}>
                 <div>
                   <strong>{service.name}</strong>
@@ -177,6 +228,7 @@ function App() {
               </div>
             ))}
           </div>
+          <p className="panel-note">{liveDataStatus}</p>
         </article>
 
         <article className="panel panel-large">

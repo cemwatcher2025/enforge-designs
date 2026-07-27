@@ -1,0 +1,165 @@
+import cors from 'cors'
+import express from 'express'
+
+const app = express()
+const port = process.env.PORT || 3000
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://enforgedesigns.com,http://localhost:5173,http://127.0.0.1:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
+const usageWebhookUrl = process.env.USAGE_LOG_WEBHOOK_URL || ''
+
+const upstreams = {
+  clearbid: {
+    baseUrl: process.env.CLEARBID_API_BASE || 'https://price-library.replit.app',
+    token: process.env.CLEARBID_TOKEN || '',
+    estimatesPath: process.env.CLEARBID_ESTIMATES_PATH || '/api/estimates',
+    healthPath: process.env.CLEARBID_HEALTH_PATH || '/api/health',
+  },
+  ministry: {
+    baseUrl: process.env.MINISTRY_API_BASE || 'https://ministry-companion.replit.app',
+    token: process.env.MINISTRY_TOKEN || '',
+    statsPath: process.env.MINISTRY_STATS_PATH || '/api/stats',
+    healthPath: process.env.MINISTRY_HEALTH_PATH || '/api/health',
+  },
+  kim: {
+    baseUrl: process.env.KIM_API_BASE || 'https://kim-assistant.replit.app',
+    token: process.env.KIM_TOKEN || '',
+    statusPath: process.env.KIM_STATUS_PATH || '/api/status',
+    healthPath: process.env.KIM_HEALTH_PATH || '/api/health',
+  },
+}
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+      return
+    }
+    callback(new Error(`Origin not allowed: ${origin}`))
+  },
+}))
+app.use(express.json())
+
+function joinUrl(baseUrl, path) {
+  return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
+}
+
+async function logUsage(service, purpose, success, cost = '$0.00') {
+  if (!usageWebhookUrl) return
+
+  const payload = {
+    timestamp: new Date().toISOString(),
+    service,
+    purpose,
+    cost,
+    success,
+  }
+
+  try {
+    await fetch(usageWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    })
+  } catch (error) {
+    console.warn(`Usage log failed for ${service}:`, error.message)
+  }
+}
+
+async function callUpstream({ baseUrl, token }, path, service, purpose) {
+  if (!token) {
+    await logUsage(service, purpose, false)
+    return {
+      body: { error: `${service} token is not configured` },
+      ok: false,
+      status: 500,
+    }
+  }
+
+  const startedAt = Date.now()
+  try {
+    const response = await fetch(joinUrl(baseUrl, path), {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    const text = await response.text()
+    let body
+    try {
+      body = text ? JSON.parse(text) : {}
+    } catch {
+      body = { raw: text }
+    }
+
+    await logUsage(service, purpose, response.ok)
+    return {
+      body,
+      latencyMs: Date.now() - startedAt,
+      ok: response.ok,
+      status: response.status,
+    }
+  } catch (error) {
+    await logUsage(service, purpose, false)
+    return {
+      body: { error: error.message },
+      latencyMs: Date.now() - startedAt,
+      ok: false,
+      status: 502,
+    }
+  }
+}
+
+function sendUpstreamResult(response, result) {
+  response.status(result.status).json(result.body)
+}
+
+app.get('/', (_request, response) => {
+  response.json({
+    name: 'Enforge Command Center Proxy',
+    endpoints: ['/api/health', '/api/clearbid/estimates', '/api/ministry/stats', '/api/kim/status'],
+  })
+})
+
+app.get('/api/clearbid/estimates', async (_request, response) => {
+  const result = await callUpstream(upstreams.clearbid, upstreams.clearbid.estimatesPath, 'ClearBid API', 'Fetch recent estimates')
+  sendUpstreamResult(response, result)
+})
+
+app.get('/api/ministry/stats', async (_request, response) => {
+  const result = await callUpstream(upstreams.ministry, upstreams.ministry.statsPath, 'Ministry Companion API', 'Fetch ministry stats')
+  sendUpstreamResult(response, result)
+})
+
+app.get('/api/kim/status', async (_request, response) => {
+  const result = await callUpstream(upstreams.kim, upstreams.kim.statusPath, 'KIM Assistant API', 'Fetch KIM status')
+  sendUpstreamResult(response, result)
+})
+
+app.get('/api/health', async (_request, response) => {
+  const checks = await Promise.all([
+    callUpstream(upstreams.clearbid, upstreams.clearbid.healthPath, 'ClearBid API', 'Health check'),
+    callUpstream(upstreams.ministry, upstreams.ministry.healthPath, 'Ministry Companion API', 'Health check'),
+    callUpstream(upstreams.kim, upstreams.kim.healthPath, 'KIM Assistant API', 'Health check'),
+  ])
+
+  response.json({
+    ok: checks.every((check) => check.ok),
+    services: {
+      clearbid: { ok: checks[0].ok, status: checks[0].ok ? 'online' : 'offline', latencyMs: checks[0].latencyMs, upstreamStatus: checks[0].status },
+      ministry: { ok: checks[1].ok, status: checks[1].ok ? 'online' : 'offline', latencyMs: checks[1].latencyMs, upstreamStatus: checks[1].status },
+      kim: { ok: checks[2].ok, status: checks[2].ok ? 'online' : 'offline', latencyMs: checks[2].latencyMs, upstreamStatus: checks[2].status },
+    },
+  })
+})
+
+app.use((error, _request, response, _next) => {
+  response.status(500).json({ error: error.message })
+})
+
+app.listen(port, () => {
+  console.log(`Enforge proxy listening on port ${port}`)
+})
