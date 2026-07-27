@@ -44,7 +44,8 @@ Phase 1 status:
 
 - UI shell built.
 - Connection status cards built.
-- Live API data pending secure proxy configuration.
+- Frontend proxy integration built.
+- Live API data activates when `VITE_COMMAND_CENTER_PROXY_URL` points to the deployed proxy.
 
 ### Communications Hub
 
@@ -119,6 +120,12 @@ Required frontend environment variable for usage logging:
 VITE_USAGE_LOG_ENDPOINT=https://script.google.com/macros/s/.../exec
 ```
 
+Required frontend environment variable for live dashboard data:
+
+```text
+VITE_COMMAND_CENTER_PROXY_URL=https://your-replit-proxy-url
+```
+
 ## Usage Tracking
 
 Target system: Google Sheet
@@ -135,7 +142,34 @@ Current implementation:
 
 - `src/utils/usageTracking.ts` stores usage entries in `localStorage`.
 - If `VITE_USAGE_LOG_ENDPOINT` is configured, usage entries are also posted to that endpoint.
-- A Google Apps Script or backend proxy should receive those posts and append rows to the Google Sheet.
+- `VITEUSAGELOG_ENDPOINT` is also accepted for compatibility.
+- A Google Apps Script webhook source is stored in `integrations/google-apps-script/usage-log-webhook.gs`.
+- Usage tracking Sheet: `https://docs.google.com/spreadsheets/d/16zzWBhLuOqLFp5yC2KcHH2PMfc1qgZRDmoBPImGhTdw/edit`
+
+## Proxy Server
+
+The read-only API proxy source is stored in `proxy/`.
+
+Proxy endpoints:
+
+```text
+GET /api/clearbid/estimates
+GET /api/ministry/stats
+GET /api/kim/status
+GET /api/health
+```
+
+Required proxy secrets:
+
+```text
+CLEARBID_TOKEN
+MINISTRY_TOKEN
+KIM_TOKEN
+USAGE_LOG_WEBHOOK_URL
+ALLOWED_ORIGINS=https://enforgedesigns.com,http://localhost:5173,http://127.0.0.1:5173
+```
+
+The proxy logs API calls to the Apps Script webhook when `USAGE_LOG_WEBHOOK_URL` is configured.
 
 ## README Update Policy
 
@@ -171,11 +205,14 @@ The workflow builds with:
 ```text
 GITHUB_PAGES=true
 CUSTOM_DOMAIN=true
+VITE_COMMAND_CENTER_PROXY_URL=${{ secrets.VITE_COMMAND_CENTER_PROXY_URL }}
+VITE_USAGE_LOG_ENDPOINT=${{ secrets.VITE_USAGE_LOG_ENDPOINT }}
 ```
 
 ## Next Actions
 
 - Configure Google Sheet logging endpoint.
-- Decide whether ClearBid, Ministry Companion, and KIM APIs will be accessed through one shared proxy or separate proxy endpoints.
-- Add live status polling after proxy endpoints are available.
+- Deploy the Apps Script usage webhook and copy the `/exec` URL.
+- Deploy the `proxy/` Replit service and add service tokens as Replit Secrets.
+- Add GitHub Actions secrets `VITE_USAGE_LOG_ENDPOINT` and `VITE_COMMAND_CENTER_PROXY_URL`.
 - Build Phase 2 panels after Phase 1 data flow is stable.
