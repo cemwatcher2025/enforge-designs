@@ -135,7 +135,7 @@ app.use(cors({
       callback(null, true)
       return
     }
-    callback(new Error(`Origin not allowed: ${origin}`))
+    callback(null, false)
   },
 }))
 app.use(express.json())
