@@ -19,6 +19,7 @@ function todayKey() {
 
 export function KIMSystem({ config, dashboardSummary, onConfigChange, onPrefillMinistryHours }: KIMSystemProps) {
   const [cameraActive, setCameraActive] = useState(false)
+  const [commandMode, setCommandMode] = useState(false)
   const [kimStatus, setKimStatus] = useState('KIM idle.')
   const [listening, setListening] = useState(false)
   const [presenceDetected, setPresenceDetected] = useState(false)
@@ -55,6 +56,12 @@ export function KIMSystem({ config, dashboardSummary, onConfigChange, onPrefillM
     speak(result.response, 'synthesis')
   }, [commandContext, kimConfig, speak, updateKimConfig])
 
+  const wakeForCommand = useCallback(() => {
+    updateKimConfig({ ...kimConfig, micEnabled: true, wakeWordEnabled: true })
+    setCommandMode(true)
+    setKimStatus('Listening for your command.')
+  }, [kimConfig, updateKimConfig])
+
   const handlePresenceChange = useCallback((present: boolean, active: boolean, error: string) => {
     setPresenceDetected(present)
     setCameraActive(active)
@@ -84,13 +91,24 @@ export function KIMSystem({ config, dashboardSummary, onConfigChange, onPrefillM
     window.sessionStorage.setItem('kim-session-returned', 'true')
   }, [])
 
+  useEffect(() => {
+    if (!commandMode) return undefined
+    const timeout = window.setTimeout(() => {
+      setCommandMode(false)
+      setKimStatus(`Say "${kimConfig.wakeWord}" or tap Wake to give a command.`)
+    }, 14000)
+    return () => window.clearTimeout(timeout)
+  }, [commandMode, kimConfig.wakeWord])
+
   return (
     <>
       <KIMVoice ref={voiceRef} config={kimConfig} onSpeakingChange={setSpeaking} />
       <KIMVoiceControl
+        commandMode={commandMode}
         config={kimConfig}
         listeningAllowed={listeningAllowed}
         onCommand={handleCommand}
+        onCommandModeChange={setCommandMode}
         onListeningChange={setListening}
         onStatus={setKimStatus}
       />
@@ -101,11 +119,12 @@ export function KIMSystem({ config, dashboardSummary, onConfigChange, onPrefillM
       />
       <KIMAvatar
         cameraActive={cameraActive}
+        commandMode={commandMode}
         config={kimConfig}
         listening={listening}
         onSkip={() => voiceRef.current?.skip()}
         onSleep={() => updateKimConfig({ ...kimConfig, cameraEnabled: false, micEnabled: false })}
-        onWake={() => updateKimConfig({ ...kimConfig, micEnabled: true })}
+        onWake={wakeForCommand}
         presenceDetected={presenceDetected}
         speaking={speaking}
         status={kimStatus}

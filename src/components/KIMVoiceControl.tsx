@@ -31,17 +31,24 @@ type SpeechWindow = Window & {
 }
 
 type KIMVoiceControlProps = {
+  commandMode: boolean
   config: KimConfig
   listeningAllowed: boolean
   onCommand: (text: string) => void
+  onCommandModeChange: (active: boolean) => void
   onListeningChange: (listening: boolean) => void
   onStatus: (status: string) => void
 }
 
-export function KIMVoiceControl({ config, listeningAllowed, onCommand, onListeningChange, onStatus }: KIMVoiceControlProps) {
+export function KIMVoiceControl({ commandMode, config, listeningAllowed, onCommand, onCommandModeChange, onListeningChange, onStatus }: KIMVoiceControlProps) {
   const [supported, setSupported] = useState(true)
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null)
   const wakeWordActiveRef = useRef(false)
+  const commandModeRef = useRef(commandMode)
+
+  useEffect(() => {
+    commandModeRef.current = commandMode
+  }, [commandMode])
 
   useEffect(() => {
     const SpeechRecognition = (window as SpeechWindow).SpeechRecognition ?? (window as SpeechWindow).webkitSpeechRecognition
@@ -72,6 +79,11 @@ export function KIMVoiceControl({ config, listeningAllowed, onCommand, onListeni
       if (!transcript) return
       const lowered = transcript.toLowerCase()
       const wakeWord = config.wakeWord.toLowerCase()
+      if (commandModeRef.current) {
+        onCommandModeChange(false)
+        onCommand(transcript)
+        return
+      }
       if (lowered.includes(wakeWord)) {
         wakeWordActiveRef.current = true
         onStatus('KIM is listening.')
@@ -101,7 +113,7 @@ export function KIMVoiceControl({ config, listeningAllowed, onCommand, onListeni
 
     try {
       recognition.start()
-      onStatus('Wake word armed.')
+      onStatus(commandMode ? 'Listening for your command.' : `Say "${config.wakeWord}" before a command.`)
       onListeningChange(true)
     } catch {
       onStatus('Mic permission required.')
@@ -113,7 +125,7 @@ export function KIMVoiceControl({ config, listeningAllowed, onCommand, onListeni
       recognitionRef.current = null
       onListeningChange(false)
     }
-  }, [config.micEnabled, config.wakeWord, config.wakeWordEnabled, listeningAllowed, onCommand, onListeningChange, onStatus])
+  }, [commandMode, config.micEnabled, config.wakeWord, config.wakeWordEnabled, listeningAllowed, onCommand, onCommandModeChange, onListeningChange, onStatus])
 
   if (supported) return null
   return <span className="kim-support-warning">SpeechRecognition unavailable</span>
