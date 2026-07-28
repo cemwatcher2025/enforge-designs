@@ -9,8 +9,8 @@
 }
 
 .kim-avatar {
-  width: 150px;
-  height: 200px;
+  width: 170px;
+  height: 220px;
   display: block;
   margin-left: auto;
   animation: kim-float 4.8s ease-in-out infinite;
@@ -27,35 +27,76 @@
   animation-duration: 2.4s;
 }
 
-.kim-head,
-.kim-body,
-.kim-shoulders,
-.kim-face-line,
-.kim-scan-lines line {
+.kim-head-shell {
+  fill: url("#kim-skin");
+  stroke: rgba(190, 247, 255, 0.78);
+  stroke-width: 1.6;
+  filter: url("#kim-glow");
+}
+
+.kim-cranium,
+.kim-ear,
+.kim-neck,
+.kim-brow,
+.kim-eye-socket,
+.kim-nose-plane,
+.kim-mouth-plane,
+.kim-cheek,
+.kim-scan-lines path {
   fill: none;
   stroke: url("#kim-line");
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.8;
+  stroke-width: 1.15;
   filter: url("#kim-glow");
 }
 
-.kim-body,
-.kim-shoulders {
-  stroke-width: 2.2;
+.kim-cranium {
+  opacity: 0.44;
 }
 
-.kim-face-line,
-.kim-scan-lines line {
-  opacity: 0.52;
-  stroke-width: 1;
+.kim-ear,
+.kim-neck {
+  opacity: 0.5;
+}
+
+.kim-brow,
+.kim-eye-socket {
+  opacity: 0.68;
+  stroke-width: 1.35;
+}
+
+.kim-nose-plane,
+.kim-mouth-plane,
+.kim-cheek {
+  opacity: 0.42;
 }
 
 .kim-eye {
-  fill: #eafdff;
+  fill: url("#kim-eye-glow");
   filter: url("#kim-glow");
-  opacity: 0.92;
+  opacity: 0.98;
   animation: kim-eye-pulse 3.6s ease-in-out infinite;
+}
+
+.kim-circuitry path,
+.kim-circuitry circle {
+  fill: none;
+  stroke: rgba(90, 244, 255, 0.36);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 0.75;
+  filter: url("#kim-glow");
+}
+
+.kim-circuitry circle {
+  fill: rgba(71, 255, 184, 0.72);
+  stroke: none;
+}
+
+.kim-scan-lines path {
+  opacity: 0.28;
+  stroke-width: 0.7;
 }
 
 .kim-halo {
@@ -64,7 +105,7 @@
 }
 
 .kim-avatar-shell[data-state="listening"] .kim-eye {
-  fill: #40ff6a;
+  filter: drop-shadow(0 0 12px rgba(64, 255, 106, 0.95));
 }
 
 .kim-avatar-shell[data-state="speaking"] .kim-eye {
