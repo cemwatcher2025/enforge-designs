@@ -39,9 +39,22 @@ KIM_HEALTH_PATH=/api/health
 ```text
 GET /api/clearbid/estimates
 GET /api/ministry/stats
+POST /api/ministry/hours
 GET /api/kim/status
 GET /api/health
+GET /api/admin/config
+POST /api/admin/config
+GET /api/admin/status
+GET /api/world/state
+POST /api/world/objects
+PATCH /api/world/objects/:id
+DELETE /api/world/objects/:id
+POST /api/world/reset
+GET /api/world/interactions
+POST /api/world/interactions
 ```
+
+Runtime dashboard config is stored in `data/config.json`. Runtime World Engine state is stored in `data/world.json`. Do not commit runtime `data/*.json` files with private or user-specific state.
 
 ## Deploy on Replit
 

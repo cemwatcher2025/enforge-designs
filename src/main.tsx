@@ -5,6 +5,7 @@ import './styles/global.css'
 import './styles/kim.css'
 import './styles/ministry.css'
 import './styles/sandbox3d.css'
+import './styles/world.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

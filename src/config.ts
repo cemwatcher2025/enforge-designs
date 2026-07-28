@@ -57,6 +57,11 @@ export type Sandbox3DConfig = {
   presets: { id: SandboxPresetId; name: string; detail: string }[]
 }
 
+export type WorldEngineConfig = {
+  emptyState: string
+  title: string
+}
+
 export type MinistryPanelConfig = {
   emptyState: string
   refreshLabel: string
@@ -84,6 +89,7 @@ export type AdminConfig = {
   kim: KimConfig
   ministry: MinistryPanelConfig
   sandbox3d: Sandbox3DConfig
+  world: WorldEngineConfig
 }
 
 export const defaultProjectLinks: ProjectLink[] = [
@@ -177,6 +183,11 @@ export const defaultSandbox3DConfig: Sandbox3DConfig = {
   ],
 }
 
+export const defaultWorldEngineConfig: WorldEngineConfig = {
+  emptyState: 'The persistent world is empty. Codex can add objects through the World Engine API.',
+  title: 'World Engine',
+}
+
 export const defaultMinistryPanelConfig: MinistryPanelConfig = {
   emptyState: 'Ministry Companion data refreshes when this panel opens. Empty lists mean the API returned no records for that section.',
   refreshLabel: 'Refresh',
@@ -206,6 +217,7 @@ export const defaultAdminConfig: AdminConfig = {
   projects: defaultProjectLinks,
   sandbox3d: defaultSandbox3DConfig,
   theme: 'dark',
+  world: defaultWorldEngineConfig,
 }
 
 export function normalizeAdminConfig(config: Partial<AdminConfig> & {
@@ -223,5 +235,6 @@ export function normalizeAdminConfig(config: Partial<AdminConfig> & {
     projects: config.projects ?? config.projectCards ?? defaultAdminConfig.projects,
     sandbox3d: { ...defaultAdminConfig.sandbox3d, ...config.sandbox3d },
     theme: config.theme ?? defaultAdminConfig.theme,
+    world: { ...defaultAdminConfig.world, ...config.world },
   }
 }

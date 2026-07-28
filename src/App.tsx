@@ -527,7 +527,7 @@ function App() {
     }
 
     if (id === 'sandbox3d') {
-      return <Sandbox3D sandboxConfig={adminConfig.sandbox3d} />
+      return <Sandbox3D sandboxConfig={adminConfig.sandbox3d} worldConfig={adminConfig.world} />
     }
 
     return <MinistryPanel config={adminConfig.ministry} logPrefill={ministryLogPrefill} />
