@@ -200,6 +200,11 @@ h2 {
   box-shadow: 0 0 24px rgba(64, 255, 106, 0.72);
 }
 
+.mini-status[data-state="pending"] .status-dot {
+  background: #ffb000;
+  box-shadow: 0 0 24px rgba(255, 176, 0, 0.72);
+}
+
 .mini-status[data-state="offline"] .status-dot {
   background: #ff3355;
   box-shadow: 0 0 24px rgba(255, 51, 85, 0.72);

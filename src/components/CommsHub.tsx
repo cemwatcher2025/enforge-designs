@@ -26,13 +26,16 @@ type CommsHubProps = {
 const unreadEmails: EmailPreview[] = []
 const nextEvent: CalendarPreview | null = null
 
-function dotState(connected: boolean): ServiceState {
-  return connected ? 'online' : 'offline'
+function dotState(connected: boolean, hasLink: boolean): ServiceState {
+  return connected ? 'online' : hasLink ? 'pending' : 'offline'
 }
 
 export function CommsHub({ config, onStageReply, replyDraft, replyStatus, setReplyDraft }: CommsHubProps) {
   const unreadCount = config.gmailConnected ? unreadEmails.length : null
   const todayEventCount = config.calendarConnected && nextEvent ? 1 : 0
+  const gmailLinkReady = Boolean(config.gmailInboxUrl && config.gmailComposeUrl)
+  const calendarLinkReady = Boolean(config.calendarUrl)
+  const hasLiveCommsData = config.gmailConnected || config.calendarConnected
 
   return (
     <article className="panel panel-large">
@@ -41,22 +44,22 @@ export function CommsHub({ config, onStageReply, replyDraft, replyStatus, setRep
           <p className="eyebrow">Panel 02</p>
           <h2>Communications Hub</h2>
         </div>
-        <span className="panel-badge">{unreadCount === null ? 'Connect' : `${unreadCount} unread`}</span>
+        <span className="panel-badge">{hasLiveCommsData ? `${unreadCount ?? 0} unread` : 'Links ready'}</span>
       </div>
 
       <div className="comms-status-grid" aria-label="Communications service status">
-        <div className="mini-status" data-state={dotState(config.gmailConnected)}>
+        <div className="mini-status" data-state={dotState(config.gmailConnected, gmailLinkReady)}>
           <span className="status-dot" />
           <div>
             <strong>Gmail</strong>
-            <span>{config.gmailConnected ? 'Connected via link-out' : 'Not connected'}</span>
+            <span>{config.gmailConnected ? 'Live data connected' : gmailLinkReady ? 'Link-out ready' : 'Link missing'}</span>
           </div>
         </div>
-        <div className="mini-status" data-state={dotState(config.calendarConnected)}>
+        <div className="mini-status" data-state={dotState(config.calendarConnected, calendarLinkReady)}>
           <span className="status-dot" />
           <div>
             <strong>Calendar</strong>
-            <span>{config.calendarConnected ? 'Connected via link-out' : 'Not connected'}</span>
+            <span>{config.calendarConnected ? 'Live data connected' : calendarLinkReady ? 'Link-out ready' : 'Link missing'}</span>
           </div>
         </div>
       </div>
