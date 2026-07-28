@@ -1,0 +1,211 @@
+.kim-avatar-shell {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 30;
+  width: 170px;
+  pointer-events: auto;
+  filter: drop-shadow(0 0 28px rgba(0, 229, 255, 0.45));
+}
+
+.kim-avatar {
+  width: 150px;
+  height: 200px;
+  display: block;
+  margin-left: auto;
+  animation: kim-float 4.8s ease-in-out infinite;
+  overflow: visible;
+}
+
+.kim-avatar-shell[data-state="standby"] {
+  opacity: 0.45;
+  filter: grayscale(0.35) drop-shadow(0 0 12px rgba(0, 229, 255, 0.2));
+}
+
+.kim-avatar-shell[data-state="listening"] .kim-avatar,
+.kim-avatar-shell[data-state="speaking"] .kim-avatar {
+  animation-duration: 2.4s;
+}
+
+.kim-head,
+.kim-body,
+.kim-shoulders,
+.kim-face-line,
+.kim-scan-lines line {
+  fill: none;
+  stroke: url("#kim-line");
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  filter: url("#kim-glow");
+}
+
+.kim-body,
+.kim-shoulders {
+  stroke-width: 2.2;
+}
+
+.kim-face-line,
+.kim-scan-lines line {
+  opacity: 0.52;
+  stroke-width: 1;
+}
+
+.kim-eye {
+  fill: #eafdff;
+  filter: url("#kim-glow");
+  opacity: 0.92;
+  animation: kim-eye-pulse 3.6s ease-in-out infinite;
+}
+
+.kim-halo {
+  fill: rgba(0, 229, 255, 0.18);
+  stroke: rgba(0, 229, 255, 0.62);
+}
+
+.kim-avatar-shell[data-state="listening"] .kim-eye {
+  fill: #40ff6a;
+}
+
+.kim-avatar-shell[data-state="speaking"] .kim-eye {
+  animation-duration: 900ms;
+}
+
+.kim-privacy-dots {
+  position: absolute;
+  top: 8px;
+  right: 4px;
+  display: flex;
+  gap: 6px;
+}
+
+.kim-privacy-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff3355;
+  box-shadow: 0 0 14px rgba(255, 51, 85, 0.65);
+}
+
+.kim-privacy-dots span[data-active="true"] {
+  background: #40ff6a;
+  box-shadow: 0 0 14px rgba(64, 255, 106, 0.72);
+}
+
+.kim-avatar-panel {
+  display: grid;
+  gap: 6px;
+  margin-top: -18px;
+  padding: 10px;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background: rgba(2, 5, 10, 0.78);
+  backdrop-filter: blur(14px);
+}
+
+.kim-avatar-panel strong {
+  color: #00e5ff;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.kim-avatar-panel span,
+.kim-voice-status,
+.kim-support-warning {
+  color: #a9b8d7;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.kim-voice-status,
+.kim-support-warning {
+  position: fixed;
+  right: 18px;
+  bottom: 238px;
+  z-index: 29;
+}
+
+.kim-avatar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.kim-avatar-actions button {
+  min-height: 28px;
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 229, 255, 0.16);
+  color: #00e5ff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.kim-avatar-actions button:last-child {
+  background: #ff2fb3;
+  color: #05070d;
+}
+
+.admin-field {
+  display: grid;
+  gap: 6px;
+  color: #ff2fb3;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-field input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #05070d;
+  color: #f3f7ff;
+  padding: 10px;
+}
+
+body[data-theme="light"] .kim-avatar-panel {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+body[data-theme="light"] .admin-field input {
+  background: #ffffff;
+  color: #07111f;
+}
+
+@keyframes kim-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes kim-eye-pulse {
+  0%,
+  100% {
+    opacity: 0.74;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .kim-avatar-shell {
+    right: 10px;
+    bottom: 10px;
+    width: 132px;
+  }
+
+  .kim-avatar {
+    width: 118px;
+    height: 158px;
+  }
+
+  .kim-avatar-panel {
+    margin-top: -12px;
+  }
+}

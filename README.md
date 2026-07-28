@@ -8,7 +8,7 @@ This README is the project manifest. Read it at the start of each task to stay a
 
 Active project: Enforge Command Center
 
-Current phase: Phase 6 active
+Current phase: Phase 7 active
 
 Build order:
 
@@ -18,6 +18,7 @@ Build order:
 4. Phase 4: 3D Sandbox - active / initial viewer shipped
 5. Phase 5: Ministry Panel - active / initial panel shipped
 6. Phase 6: Admin API + Lindy Integration - active / initial remote config shipped
+7. Phase 7: Room Awareness + KIM Avatar - active / initial avatar and browser sensors shipped
 
 ## Recent Decisions
 
@@ -35,6 +36,7 @@ Build order:
 - Phase 4 uses Three.js from a CDN at runtime so the main Vite bundle stays lighter. Models load client-side only and are not uploaded.
 - Phase 5 Ministry Panel reads through the Replit proxy. The public frontend never receives the Ministry Companion token.
 - Phase 6 stores dashboard config in the Replit proxy at `data/config.json` for Lindy/browser remote management, with browser `localStorage` fallback.
+- Phase 7 KIM mic/camera processing is browser-local only. ElevenLabs API key is never committed or synced to the proxy; it is stored only in browser localStorage through KIM settings.
 
 ## Active Panels
 
@@ -106,6 +108,20 @@ Phase 6 status:
 - Admin config loads from `GET /api/admin/config` when the proxy is reachable.
 - Admin config autosaves to `POST /api/admin/config` and falls back to browser `localStorage` if the proxy is unreachable.
 - Admin panel shows connected/local-fallback sync status.
+- KIM settings shipped for voice enablement, wake word, mic/camera toggles, ElevenLabs voice ID, and browser-local ElevenLabs API key.
+
+### KIM Avatar + Room Awareness
+
+Phase 7 status:
+
+- Fixed cyan-blue KIM hologram avatar shipped with idle/listening/speaking/standby visual states.
+- Browser speech synthesis shipped for fast command confirmations.
+- ElevenLabs text-to-speech queue shipped for greetings and longer responses when a local API key is entered.
+- Skip and sleep/wake controls shipped on the avatar.
+- Web Speech API wake-word listener shipped for Chrome/Edge-compatible browsers.
+- Voice commands shipped for showing/hiding panels, opening projects, switching theme, reading ministry stats, checking unread email/calendar placeholders, staging ministry hours, help, sleep, and wake.
+- Camera presence detection shipped with hidden video/canvas frame diffing, privacy dots, and no recording or uploads.
+- Admin KIM settings shipped; API key remains local and is stripped from remote admin config sync.
 
 ## Future Panels
 
@@ -270,6 +286,8 @@ VITE_USAGE_LOG_ENDPOINT=${{ secrets.VITE_USAGE_LOG_ENDPOINT }}
 - Add a real Gmail/Calendar backend connector if live unread emails and live calendar events are required inside the dashboard.
 - Redeploy the Replit proxy so `POST /api/ministry/hours` is available in production.
 - Redeploy the Replit proxy after Phase 6 so Lindy can use `/api/admin/config` and `/api/admin/status`.
+- Add real Gmail/Calendar proxy endpoints if KIM should read live meetings and unread email counts instead of placeholders.
+- Enter the ElevenLabs API key in KIM settings on each browser where premium KIM voice should be enabled.
 - Confirm the Ministry Companion upstream hours endpoint path if it differs from `/api/hours`; set `MINISTRY_HOURS_PATH` in Replit if needed.
 - Add saved-scene reload/import controls if the localStorage 3D scene snapshot should become a reusable project file.
 - Add curated ROAM/Unreal/Blender model URLs when production assets are ready.

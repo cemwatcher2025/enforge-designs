@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminPanel } from './components/AdminPanel'
 import { CommsHub } from './components/CommsHub'
+import { KIMSystem } from './components/KIMSystem'
 import { MinistryPanel } from './components/MinistryPanel'
 import { Sandbox3D } from './components/Sandbox3D'
 import { defaultAdminConfig, normalizeAdminConfig, type Accent, type AdminConfig, type PanelId, type ServiceState } from './config'
@@ -155,6 +156,7 @@ function App() {
   const [replyStatus, setReplyStatus] = useState('No reply staged yet.')
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [liveDataStatus, setLiveDataStatus] = useState('Live data not loaded yet.')
+  const [ministryLogPrefill, setMinistryLogPrefill] = useState<{ hours: string; type: string } | undefined>()
   const [documentQuery, setDocumentQuery] = useState('')
   const [actionRuns, setActionRuns] = useState<ActionRun[]>([])
   const [actionsStatus, setActionsStatus] = useState('Loading GitHub Actions status...')
@@ -193,6 +195,12 @@ function App() {
       return haystack.includes(query)
     })
   }, [adminConfig.documents, documentQuery])
+  const dashboardSummary = useMemo(() => ({
+    ministryHours: dashboardData?.ministryHours ?? '0.0',
+    nextMeeting: 'Calendar live events need a Google Calendar connector before I can read the next meeting.',
+    todayMeetings: 0,
+    unreadEmails: null,
+  }), [dashboardData])
 
   useEffect(() => {
     let cancelled = false
@@ -229,7 +237,13 @@ function App() {
         .then((remoteConfig) => {
           if (cancelled) return
           adminApiWritable.current = true
-          setAdminConfig(remoteConfig)
+          setAdminConfig((currentConfig) => ({
+            ...remoteConfig,
+            kim: {
+              ...remoteConfig.kim,
+              elevenLabsApiKey: currentConfig.kim.elevenLabsApiKey,
+            },
+          }))
           setAdminApiStatus(connectedStatus('Remote config loaded.'))
         })
         .catch((error) => {
@@ -516,19 +530,27 @@ function App() {
       return <Sandbox3D sandboxConfig={adminConfig.sandbox3d} />
     }
 
-    return <MinistryPanel config={adminConfig.ministry} />
+    return <MinistryPanel config={adminConfig.ministry} logPrefill={ministryLogPrefill} />
   }
 
   if (route === 'admin') {
     return (
-      <AdminPanel
-        adminApiStatus={adminApiStatus}
-        config={adminConfig}
-        health={health}
-        onBack={openDashboard}
-        onReset={resetAdminConfig}
-        onUpdate={updateAdminConfig}
-      />
+      <>
+        <AdminPanel
+          adminApiStatus={adminApiStatus}
+          config={adminConfig}
+          health={health}
+          onBack={openDashboard}
+          onReset={resetAdminConfig}
+          onUpdate={updateAdminConfig}
+        />
+        <KIMSystem
+          config={adminConfig}
+          dashboardSummary={dashboardSummary}
+          onConfigChange={updateAdminConfig}
+          onPrefillMinistryHours={(hours, type) => setMinistryLogPrefill({ hours, type })}
+        />
+      </>
     )
   }
 
@@ -567,6 +589,12 @@ function App() {
           <Fragment key={panel.id}>{renderPanel(panel.id)}</Fragment>
         ))}
       </section>
+      <KIMSystem
+        config={adminConfig}
+        dashboardSummary={dashboardSummary}
+        onConfigChange={updateAdminConfig}
+        onPrefillMinistryHours={(hours, type) => setMinistryLogPrefill({ hours, type })}
+      />
     </main>
   )
 }

@@ -28,6 +28,7 @@ function remotePayload(config: AdminConfig) {
     apiEndpoints: config.apiEndpoints,
     comms: config.comms,
     documentLinks: config.documents,
+    kim: { ...config.kim, elevenLabsApiKey: '' },
     ministry: config.ministry,
     panels: config.panels,
     projectCards: config.projects,
