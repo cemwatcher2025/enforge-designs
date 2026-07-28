@@ -1,20 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { logMinistryHours, type MinistryEntryType } from '../utils/ministryApi'
 
 type MinistryLogHoursProps = {
+  prefill?: { hours: string; type: string }
   onLogged: () => void
 }
 
 const today = new Date().toISOString().slice(0, 10)
 
-export function MinistryLogHours({ onLogged }: MinistryLogHoursProps) {
+export function MinistryLogHours({ onLogged, prefill }: MinistryLogHoursProps) {
   const [date, setDate] = useState(today)
   const [hours, setHours] = useState('1.0')
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState('Ready to log time.')
   const [submitting, setSubmitting] = useState(false)
   const [type, setType] = useState<MinistryEntryType>('field-service')
+
+  useEffect(() => {
+    if (!prefill) return
+    const timeout = window.setTimeout(() => {
+      setHours(prefill.hours)
+      const lowered = prefill.type.toLowerCase()
+      if (lowered.includes('study')) setType('bible-study')
+      else if (lowered.includes('return')) setType('return-visit')
+      else setType('field-service')
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [prefill])
 
   async function submitHours(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

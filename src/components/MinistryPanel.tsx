@@ -7,9 +7,10 @@ import { MinistryStats } from './MinistryStats'
 
 type MinistryPanelProps = {
   config: MinistryPanelConfig
+  logPrefill?: { hours: string; type: string }
 }
 
-export function MinistryPanel({ config }: MinistryPanelProps) {
+export function MinistryPanel({ config, logPrefill }: MinistryPanelProps) {
   const [data, setData] = useState<MinistryStatsData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -72,7 +73,7 @@ export function MinistryPanel({ config }: MinistryPanelProps) {
         </section>
 
         <aside className="ministry-side">
-          <MinistryLogHours onLogged={() => void loadStats()} />
+          <MinistryLogHours onLogged={() => void loadStats()} prefill={logPrefill} />
           <div className="ministry-note-card">
             <strong>Last refresh</strong>
             <span>{lastRefresh}</span>

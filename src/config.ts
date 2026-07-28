@@ -63,6 +63,16 @@ export type MinistryPanelConfig = {
   title: string
 }
 
+export type KimConfig = {
+  cameraEnabled: boolean
+  elevenLabsApiKey: string
+  elevenLabsVoiceId: string
+  micEnabled: boolean
+  voiceEnabled: boolean
+  wakeWord: string
+  wakeWordEnabled: boolean
+}
+
 export type AdminConfig = {
   theme: ThemeMode
   activeProject: string
@@ -71,6 +81,7 @@ export type AdminConfig = {
   documents: DocumentLink[]
   apiEndpoints: ApiEndpointConfig[]
   comms: CommsConfig
+  kim: KimConfig
   ministry: MinistryPanelConfig
   sandbox3d: Sandbox3DConfig
 }
@@ -172,11 +183,24 @@ export const defaultMinistryPanelConfig: MinistryPanelConfig = {
   title: 'Ministry Panel',
 }
 
+export const kimSettingsStorageKey = 'enforge-kim-settings'
+
+export const defaultKimConfig: KimConfig = {
+  cameraEnabled: false,
+  elevenLabsApiKey: '',
+  elevenLabsVoiceId: 'nPczCjzI2devNBz1zQrb',
+  micEnabled: false,
+  voiceEnabled: true,
+  wakeWord: 'hey kim',
+  wakeWordEnabled: true,
+}
+
 export const defaultAdminConfig: AdminConfig = {
   activeProject: 'enforge',
   apiEndpoints: defaultApiEndpoints,
   comms: defaultCommsConfig,
   documents: defaultDocumentLinks,
+  kim: defaultKimConfig,
   ministry: defaultMinistryPanelConfig,
   panels: defaultPanels,
   projects: defaultProjectLinks,
@@ -193,6 +217,7 @@ export function normalizeAdminConfig(config: Partial<AdminConfig> & {
     apiEndpoints: config.apiEndpoints ?? defaultAdminConfig.apiEndpoints,
     comms: { ...defaultAdminConfig.comms, ...config.comms },
     documents: config.documents ?? config.documentLinks ?? defaultAdminConfig.documents,
+    kim: { ...defaultAdminConfig.kim, ...config.kim },
     ministry: { ...defaultAdminConfig.ministry, ...config.ministry },
     panels: config.panels ?? defaultAdminConfig.panels,
     projects: config.projects ?? config.projectCards ?? defaultAdminConfig.projects,

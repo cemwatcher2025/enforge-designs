@@ -1,6 +1,7 @@
 import type { AdminConfig, ApiEndpointConfig, DocumentLink, PanelConfig, ProjectLink, ServiceState, ThemeMode } from '../config'
 import { defaultAdminConfig } from '../config'
 import type { AdminApiStatus } from '../utils/adminConfigApi'
+import { KIMSettings } from './KIMSettings'
 
 type AdminPanelProps = {
   adminApiStatus: AdminApiStatus
@@ -145,6 +146,8 @@ export function AdminPanel({ adminApiStatus, config, health, onBack, onReset, on
           </div>
           <p className="panel-note">Tokens stay in the Replit proxy. These fields only update frontend endpoint labels for now.</p>
         </article>
+
+        <KIMSettings config={config.kim} onChange={(kim) => onUpdate({ ...config, kim })} />
 
         <article className="panel admin-panel-card">
           <div className="panel-heading compact">
