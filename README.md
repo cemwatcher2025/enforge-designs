@@ -8,7 +8,7 @@ This README is the project manifest. Read it at the start of each task to stay a
 
 Active project: Enforge Command Center
 
-Current phase: Phase 7 active
+Current phase: Phase 8 active
 
 Build order:
 
@@ -19,6 +19,7 @@ Build order:
 5. Phase 5: Ministry Panel - active / initial panel shipped
 6. Phase 6: Admin API + Lindy Integration - active / initial remote config shipped
 7. Phase 7: Room Awareness + KIM Avatar - active / initial avatar and browser sensors shipped
+8. Phase 8: Codex Persistent World - active / initial World Engine shipped
 
 ## Recent Decisions
 
@@ -37,6 +38,7 @@ Build order:
 - Phase 5 Ministry Panel reads through the Replit proxy. The public frontend never receives the Ministry Companion token.
 - Phase 6 stores dashboard config in the Replit proxy at `data/config.json` for Lindy/browser remote management, with browser `localStorage` fallback.
 - Phase 7 KIM mic/camera processing is browser-local only. ElevenLabs API key is never committed or synced to the proxy; it is stored only in browser localStorage through KIM settings.
+- Phase 8 turns the 3D Sandbox panel into a mode-switched tool: Sandbox mode remains local/freeform, and World mode loads persistent scene state from the Replit proxy.
 
 ## Active Panels
 
@@ -127,7 +129,7 @@ Phase 7 status:
 
 ### 3D Viewer / 3D Sandbox
 
-Phase 4 status:
+Phase 8 status:
 
 - Three.js viewport shipped inside the configurable 3D Sandbox panel.
 - Orbit controls, grid floor, lighting, fog/background, and axes helper shipped.
@@ -139,6 +141,12 @@ Phase 4 status:
 - Animated model support shipped for the first animation clip with play/pause and timeline scrubber.
 - Scene object list and TransformControls shipped for selecting, moving, rotating, and scaling objects.
 - Scene save writes object transforms, colors, preset, wireframe state, and loaded model source to `localStorage`.
+- Mode toggle shipped for Sandbox mode vs World mode.
+- World mode loads persistent state from `GET /api/world/state`.
+- World objects can load `.glb` / `.gltf` URLs or fall back to labeled geometric placeholders if loading fails.
+- World object list, focus/select behavior, object details, action button, hover/selection feedback, and recent interaction log shipped.
+- World interactions post to `POST /api/world/interactions` and persist through the proxy.
+- World reset is available in the UI with confirmation.
 
 ### Ministry Panel
 
@@ -163,6 +171,7 @@ Known service endpoints:
 | ClearBid | `https://price-library.replit.app` | Live through secure proxy |
 | Ministry Companion | `https://ministry-companion.replit.app` | Live through secure proxy |
 | KIM Assistant | `https://kim-assistant.replit.app` | Live through secure proxy |
+| World Engine | Replit proxy `/api/world/*` | Persistent proxy JSON store |
 | ElevenLabs | ElevenLabs API | Pending secure proxy |
 | Lindy | `https://chat.lindy.ai` | Manual/link-out; no public API currently |
 
@@ -177,6 +186,18 @@ Required frontend environment variable for live dashboard data:
 ```text
 VITE_COMMAND_CENTER_PROXY_URL=https://your-replit-proxy-url
 ```
+
+World Engine proxy endpoints:
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/world/state` | Read persistent world objects, interactions, version, and timestamp |
+| `POST` | `/api/world/objects` | Add a persistent world object |
+| `PATCH` | `/api/world/objects/:id` | Update position, rotation, scale, metadata, or properties |
+| `DELETE` | `/api/world/objects/:id` | Remove a persistent world object |
+| `POST` | `/api/world/reset` | Clear objects/interactions and start a fresh world |
+| `GET` | `/api/world/interactions` | Read interaction history |
+| `POST` | `/api/world/interactions` | Log a user interaction with an object |
 
 ## Usage Tracking
 

@@ -34,6 +34,7 @@ function remotePayload(config: AdminConfig) {
     projectCards: config.projects,
     sandbox3d: config.sandbox3d,
     theme: config.theme,
+    world: config.world,
   }
 }
 

@@ -9,6 +9,7 @@ const port = process.env.PORT || 3000
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const dataDir = path.join(__dirname, 'data')
 const configPath = path.join(dataDir, 'config.json')
+const worldPath = path.join(dataDir, 'world.json')
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://enforgedesigns.com,http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
@@ -90,6 +91,13 @@ const defaultDashboardConfig = {
   theme: 'dark',
 }
 
+const defaultWorldState = {
+  interactions: [],
+  lastModified: null,
+  objects: [],
+  worldVersion: 1,
+}
+
 const upstreams = {
   clearbid: {
     baseUrl: process.env.CLEARBID_API_BASE || 'https://price-library.replit.app',
@@ -151,6 +159,56 @@ function normalizeDashboardConfig(config) {
   }
 }
 
+function vectorFrom(value, fallback) {
+  const source = asObject(value)
+  return {
+    x: Number.isFinite(Number(source.x)) ? Number(source.x) : fallback.x,
+    y: Number.isFinite(Number(source.y)) ? Number(source.y) : fallback.y,
+    z: Number.isFinite(Number(source.z)) ? Number(source.z) : fallback.z,
+  }
+}
+
+function normalizeWorldObject(object, fallbackId = '') {
+  const source = asObject(object)
+  const id = String(source.id || fallbackId || `world-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+  const interactionType = ['examine', 'repair', 'collect', 'activate'].includes(source.interactionType)
+    ? source.interactionType
+    : 'examine'
+
+  return {
+    description: typeof source.description === 'string' ? source.description : '',
+    id,
+    interactable: source.interactable !== false,
+    interactionType,
+    modelUrl: typeof source.modelUrl === 'string' ? source.modelUrl : '',
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : 'World Object',
+    position: vectorFrom(source.position, { x: 0, y: 0, z: 0 }),
+    properties: asObject(source.properties),
+    rotation: vectorFrom(source.rotation, { x: 0, y: 0, z: 0 }),
+    scale: vectorFrom(source.scale, { x: 1, y: 1, z: 1 }),
+  }
+}
+
+function normalizeInteraction(interaction) {
+  const source = asObject(interaction)
+  return {
+    duration: Number.isFinite(Number(source.duration)) ? Number(source.duration) : 0,
+    objectId: typeof source.objectId === 'string' ? source.objectId : '',
+    timestamp: typeof source.timestamp === 'string' ? source.timestamp : new Date().toISOString(),
+    type: typeof source.type === 'string' ? source.type : 'examine',
+  }
+}
+
+function normalizeWorldState(state) {
+  const source = asObject(state)
+  return {
+    interactions: Array.isArray(source.interactions) ? source.interactions.map(normalizeInteraction).slice(-500) : [],
+    lastModified: typeof source.lastModified === 'string' ? source.lastModified : null,
+    objects: Array.isArray(source.objects) ? source.objects.map((object) => normalizeWorldObject(object)) : [],
+    worldVersion: Number.isFinite(Number(source.worldVersion)) ? Number(source.worldVersion) : 1,
+  }
+}
+
 async function readDashboardConfig() {
   try {
     const text = await readFile(configPath, 'utf8')
@@ -170,6 +228,29 @@ async function writeDashboardConfig(config) {
   const tempPath = `${configPath}.${process.pid}.${Date.now()}.tmp`
   await writeFile(tempPath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8')
   await rename(tempPath, configPath)
+  return normalized
+}
+
+async function readWorldState() {
+  try {
+    const text = await readFile(worldPath, 'utf8')
+    return normalizeWorldState(JSON.parse(text))
+  } catch (error) {
+    if (error.code !== 'ENOENT') console.warn('World read failed:', error.message)
+    return normalizeWorldState(defaultWorldState)
+  }
+}
+
+async function writeWorldState(state) {
+  await mkdir(dataDir, { recursive: true })
+  const normalized = normalizeWorldState({
+    ...state,
+    lastModified: new Date().toISOString(),
+    worldVersion: Number(state.worldVersion || 1),
+  })
+  const tempPath = `${worldPath}.${process.pid}.${Date.now()}.tmp`
+  await writeFile(tempPath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8')
+  await rename(tempPath, worldPath)
   return normalized
 }
 
@@ -320,6 +401,10 @@ app.get('/', (_request, response) => {
       '/api/ministry/stats',
       '/api/ministry/hours',
       '/api/kim/status',
+      '/api/world/state',
+      '/api/world/objects',
+      '/api/world/interactions',
+      '/api/world/reset',
     ],
   })
 })
@@ -387,6 +472,93 @@ app.get('/api/kim/status', async (_request, response) => {
 
 app.get('/api/health', async (_request, response) => {
   response.json(await getHealthSummary())
+})
+
+app.get('/api/world/state', async (_request, response) => {
+  response.json(await readWorldState())
+})
+
+app.post('/api/world/objects', async (request, response) => {
+  const world = await readWorldState()
+  const object = normalizeWorldObject(request.body)
+  const next = await writeWorldState({
+    ...world,
+    objects: [...world.objects, object],
+    worldVersion: world.worldVersion + 1,
+  })
+  await logUsage('World Engine API', `Add world object: ${object.name}`, true)
+  response.status(201).json({ objectId: object.id, ok: true, worldVersion: next.worldVersion })
+})
+
+app.patch('/api/world/objects/:id', async (request, response) => {
+  const world = await readWorldState()
+  const id = request.params.id
+  const index = world.objects.findIndex((object) => object.id === id)
+  if (index === -1) {
+    response.status(404).json({ error: `World object not found: ${id}` })
+    return
+  }
+
+  const nextObjects = [...world.objects]
+  nextObjects[index] = normalizeWorldObject({ ...nextObjects[index], ...asObject(request.body), id })
+  const next = await writeWorldState({
+    ...world,
+    objects: nextObjects,
+    worldVersion: world.worldVersion + 1,
+  })
+  await logUsage('World Engine API', `Update world object: ${id}`, true)
+  response.json({ object: nextObjects[index], ok: true, worldVersion: next.worldVersion })
+})
+
+app.delete('/api/world/objects/:id', async (request, response) => {
+  const world = await readWorldState()
+  const id = request.params.id
+  const nextObjects = world.objects.filter((object) => object.id !== id)
+  if (nextObjects.length === world.objects.length) {
+    response.status(404).json({ error: `World object not found: ${id}` })
+    return
+  }
+
+  const next = await writeWorldState({
+    ...world,
+    objects: nextObjects,
+    worldVersion: world.worldVersion + 1,
+  })
+  await logUsage('World Engine API', `Remove world object: ${id}`, true)
+  response.json({ ok: true, worldVersion: next.worldVersion })
+})
+
+app.post('/api/world/reset', async (_request, response) => {
+  const next = await writeWorldState({
+    ...defaultWorldState,
+    worldVersion: 1,
+  })
+  await logUsage('World Engine API', 'Reset persistent world', true)
+  response.json({ ok: true, state: next })
+})
+
+app.get('/api/world/interactions', async (_request, response) => {
+  const world = await readWorldState()
+  response.json({ interactions: world.interactions })
+})
+
+app.post('/api/world/interactions', async (request, response) => {
+  const world = await readWorldState()
+  const interaction = normalizeInteraction({
+    ...asObject(request.body),
+    timestamp: new Date().toISOString(),
+  })
+  if (!interaction.objectId) {
+    response.status(400).json({ error: 'objectId is required' })
+    return
+  }
+
+  const next = await writeWorldState({
+    ...world,
+    interactions: [...world.interactions, interaction].slice(-500),
+  })
+  await logUsage('World Engine API', `Log world interaction: ${interaction.type}`, true)
+  response.status(201).json({ interaction, ok: true, worldVersion: next.worldVersion })
 })
 
 app.use((error, _request, response, _next) => {

@@ -1,17 +1,20 @@
 import { useMemo, useState } from 'react'
-import type { Sandbox3DConfig, SandboxPresetId } from '../config'
+import type { Sandbox3DConfig, SandboxPresetId, WorldEngineConfig } from '../config'
 import { Sandbox3DControls, type SceneObjectInfo, type TransformMode } from './Sandbox3DControls'
 import { Sandbox3DScene, type ModelRequest } from './Sandbox3DScene'
+import { WorldEngine } from './WorldEngine'
 
 type Sandbox3DProps = {
   sandboxConfig: Sandbox3DConfig
+  worldConfig: WorldEngineConfig
 }
 
-export function Sandbox3D({ sandboxConfig }: Sandbox3DProps) {
+export function Sandbox3D({ sandboxConfig, worldConfig }: Sandbox3DProps) {
   const [axesVisible, setAxesVisible] = useState(true)
   const [canAnimate, setCanAnimate] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [mode, setMode] = useState<'sandbox' | 'world'>('sandbox')
   const [modelRequest, setModelRequest] = useState<ModelRequest | null>(null)
   const [modelUrl, setModelUrl] = useState('')
   const [objects, setObjects] = useState<SceneObjectInfo[]>([])
@@ -80,12 +83,17 @@ export function Sandbox3D({ sandboxConfig }: Sandbox3DProps) {
       <div className="panel-heading compact sandbox-heading">
         <div>
           <p className="eyebrow">Panel 06</p>
-          <h2>3D Sandbox</h2>
+          <h2>{mode === 'world' ? 'World Engine' : '3D Sandbox'}</h2>
         </div>
-        <span className="panel-badge">Phase 4</span>
+        <div className="sandbox-mode-toggle" role="group" aria-label="3D mode">
+          <button data-active={mode === 'sandbox'} onClick={() => setMode('sandbox')} type="button">Sandbox</button>
+          <button data-active={mode === 'world'} onClick={() => setMode('world')} type="button">World</button>
+        </div>
       </div>
 
-      <div className="sandbox-layout">
+      {mode === 'world' ? (
+        <WorldEngine config={worldConfig} />
+      ) : <div className="sandbox-layout">
         <div className="sandbox-viewport">
           <Sandbox3DScene
             axesVisible={axesVisible}
@@ -141,7 +149,7 @@ export function Sandbox3D({ sandboxConfig }: Sandbox3DProps) {
           transformMode={transformMode}
           wireframe={wireframe}
         />
-      </div>
+      </div>}
     </article>
   )
 }
