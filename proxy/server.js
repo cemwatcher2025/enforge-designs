@@ -11,10 +11,19 @@ const dataDir = path.join(__dirname, 'data')
 const configPath = path.join(dataDir, 'config.json')
 const worldPath = path.join(dataDir, 'world.json')
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://enforgedesigns.com,http://localhost:5173,http://127.0.0.1:5173')
+const defaultAllowedOrigins = [
+  'https://enforgedesigns.com',
+  'http://enforgedesigns.com',
+  'https://www.enforgedesigns.com',
+  'http://www.enforgedesigns.com',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+]
+
+const allowedOrigins = [...defaultAllowedOrigins, ...(process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map((origin) => origin.trim())
-  .filter(Boolean)
+  .filter(Boolean)]
 
 function env(...names) {
   for (const name of names) {
