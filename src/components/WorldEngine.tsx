@@ -36,6 +36,10 @@ export function WorldEngine({ config }: WorldEngineProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const labelsRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<Record<string, any> | null>(null)
+  const interactedObjectIds = useMemo(
+    () => new Set(state.interactions.map((interaction) => interaction.objectId)),
+    [state.interactions],
+  )
 
   const selectedObject = useMemo(
     () => selectedObjectId ? selectedObjectMap.get(selectedObjectId) ?? null : null,
@@ -179,6 +183,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
           element.className = 'world-label'
           element.textContent = object.name
           element.dataset.objectId = object.id
+          element.dataset.attention = object.interactable && !interactedObjectIds.has(object.id) ? 'true' : 'false'
           safeLabelContainer.appendChild(element)
           runtime.labelElements.set(object.id, element)
         }
@@ -371,6 +376,13 @@ export function WorldEngine({ config }: WorldEngineProps) {
   }, [selectedObjectId])
 
   useEffect(() => {
+    runtimeRef.current?.labelElements?.forEach((element: HTMLDivElement, objectId: string) => {
+      const object = selectedObjectMap.get(objectId)
+      element.dataset.attention = object?.interactable && !interactedObjectIds.has(objectId) ? 'true' : 'false'
+    })
+  }, [interactedObjectIds, selectedObjectMap])
+
+  useEffect(() => {
     if (!flashObjectId) return
     const group = runtimeRef.current?.objectGroups?.get(flashObjectId)
     if (!group) return
@@ -404,6 +416,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
         </section>
 
         <WorldObjectList
+          interactedObjectIds={interactedObjectIds}
           objects={state.objects}
           onFocusObject={(id) => runtimeRef.current?.focusObject?.(id)}
           onSelectObject={setSelectedObjectId}

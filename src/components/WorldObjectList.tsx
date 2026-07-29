@@ -1,13 +1,20 @@
 import type { WorldObject } from '../hooks/useWorld'
 
 type WorldObjectListProps = {
+  interactedObjectIds: Set<string>
   objects: WorldObject[]
   selectedObjectId: string | null
   onFocusObject: (id: string) => void
   onSelectObject: (id: string | null) => void
 }
 
-export function WorldObjectList({ objects, selectedObjectId, onFocusObject, onSelectObject }: WorldObjectListProps) {
+export function WorldObjectList({
+  interactedObjectIds,
+  objects,
+  selectedObjectId,
+  onFocusObject,
+  onSelectObject,
+}: WorldObjectListProps) {
   return (
     <section className="world-panel-section">
       <strong>World objects</strong>
@@ -17,6 +24,7 @@ export function WorldObjectList({ objects, selectedObjectId, onFocusObject, onSe
         ) : objects.map((object) => (
           <button
             data-active={selectedObjectId === object.id}
+            data-attention={object.interactable && !interactedObjectIds.has(object.id)}
             key={object.id}
             onClick={() => {
               onSelectObject(object.id)
