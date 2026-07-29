@@ -36,6 +36,13 @@ export function WorldEngine({ config }: WorldEngineProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const labelsRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<Record<string, any> | null>(null)
+  const attentionRef = useRef<{
+    interactedObjectIds: Set<string>
+    objectMap: Map<string, WorldObject>
+  }>({
+    interactedObjectIds: new Set(),
+    objectMap: new Map(),
+  })
   const interactedObjectIds = useMemo(
     () => new Set(state.interactions.map((interaction) => interaction.objectId)),
     [state.interactions],
@@ -58,6 +65,11 @@ export function WorldEngine({ config }: WorldEngineProps) {
     setSelectedObjectId(null)
     void resetWorld()
   }
+
+  useEffect(() => {
+    attentionRef.current = { interactedObjectIds, objectMap: selectedObjectMap }
+    runtimeRef.current?.updateAttentionLabels?.()
+  }, [interactedObjectIds, selectedObjectMap])
 
   useEffect(() => {
     let disposed = false
@@ -178,12 +190,22 @@ export function WorldEngine({ config }: WorldEngineProps) {
           })
         }
 
+        function setLabelAttention(element: HTMLDivElement, object: WorldObject | undefined) {
+          element.dataset.attention = object?.interactable && !attentionRef.current.interactedObjectIds.has(object.id) ? 'true' : 'false'
+        }
+
+        function updateAttentionLabels() {
+          runtime.labelElements.forEach((element: HTMLDivElement, objectId: string) => {
+            setLabelAttention(element, attentionRef.current.objectMap.get(objectId))
+          })
+        }
+
         function addLabel(object: WorldObject) {
           const element = document.createElement('div')
           element.className = 'world-label'
           element.textContent = object.name
           element.dataset.objectId = object.id
-          element.dataset.attention = object.interactable && !interactedObjectIds.has(object.id) ? 'true' : 'false'
+          setLabelAttention(element, object)
           safeLabelContainer.appendChild(element)
           runtime.labelElements.set(object.id, element)
         }
@@ -345,6 +367,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
         runtime.focusObject = focusObject
         runtime.loadWorldObjects = loadWorldObjects
         runtime.setSelected = setSelected
+        runtime.updateAttentionLabels = updateAttentionLabels
 
         loadWorldObjects(state.objects)
         animate()
@@ -374,13 +397,6 @@ export function WorldEngine({ config }: WorldEngineProps) {
   useEffect(() => {
     runtimeRef.current?.setSelected?.(selectedObjectId)
   }, [selectedObjectId])
-
-  useEffect(() => {
-    runtimeRef.current?.labelElements?.forEach((element: HTMLDivElement, objectId: string) => {
-      const object = selectedObjectMap.get(objectId)
-      element.dataset.attention = object?.interactable && !interactedObjectIds.has(objectId) ? 'true' : 'false'
-    })
-  }, [interactedObjectIds, selectedObjectMap])
 
   useEffect(() => {
     if (!flashObjectId) return
