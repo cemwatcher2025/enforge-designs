@@ -24,6 +24,10 @@ function applyVector(target: any, source: { x: number; y: number; z: number }) {
   target.set(source.x, source.y, source.z)
 }
 
+function multiplyVector(target: any, source: { x: number; y: number; z: number }) {
+  target.set(target.x * source.x, target.y * source.y, target.z * source.z)
+}
+
 export function WorldEngine({ config }: WorldEngineProps) {
   const { error, isLoading, logInteraction, refresh, resetWorld, selectedObjectMap, state } = useWorld()
   const [renderStatus, setRenderStatus] = useState('Loading persistent world...')
@@ -182,7 +186,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
         function applyWorldTransform(group: any, object: WorldObject) {
           applyVector(group.position, object.position)
           applyVector(group.rotation, object.rotation)
-          applyVector(group.scale, object.scale)
+          multiplyVector(group.scale, object.scale)
         }
 
         function autoScaleModel(group: any) {
