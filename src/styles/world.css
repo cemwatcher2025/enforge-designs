@@ -52,20 +52,26 @@
 
 .world-label {
   position: absolute;
-  padding: 4px 7px;
+  padding: 3px 6px;
   border: 1px solid rgba(0, 229, 255, 0.32);
   background: rgba(2, 5, 10, 0.76);
   color: #dffbff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   white-space: nowrap;
   box-shadow: 0 0 18px rgba(0, 229, 255, 0.22);
+  transition: opacity 160ms ease;
+}
+
+.world-label[data-visible="false"] {
+  opacity: 0;
 }
 
 .world-label[data-active="true"],
 .world-label[data-hover="true"] {
   border-color: rgba(255, 47, 179, 0.82);
   color: #ff2fb3;
+  opacity: 1;
 }
 
 .world-hud {

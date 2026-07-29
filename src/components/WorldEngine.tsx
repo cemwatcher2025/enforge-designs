@@ -302,10 +302,12 @@ export function WorldEngine({ config }: WorldEngineProps) {
             const box = new THREE.Box3().setFromObject(group)
             const point = box.getCenter(new THREE.Vector3())
             point.y = box.max.y + 0.35
+            const distance = camera.position.distanceTo(point)
             point.project(camera)
             const x = (point.x * 0.5 + 0.5) * width
             const y = (-point.y * 0.5 + 0.5) * height
             element.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`
+            element.dataset.visible = distance < 28 && point.z < 1 ? 'true' : 'false'
           })
         }
 
