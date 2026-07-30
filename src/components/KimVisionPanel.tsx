@@ -6,14 +6,19 @@ type VisionMode = 'moondream' | 'proxy' | 'stats'
 
 type VisionAssessment = {
   brightness: number
+  mode: VisionMode
   motion: number | null
   note: string
   timestamp: string
+  trigger: string
 }
 
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
 const modelStorageKey = 'enforge-kim-vision-model'
+const motionThresholdStorageKey = 'enforge-kim-vision-motion-threshold'
+const cooldownStorageKey = 'enforge-kim-vision-cooldown'
+const assessmentLogStorageKey = 'enforge-kim-vision-assessments'
 const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
   || (import.meta.env.VITE_COMMAND_CENTER_PROXY_URL
     ? `${String(import.meta.env.VITE_COMMAND_CENTER_PROXY_URL).replace(/\/$/, '')}/api/kim/vision`
@@ -46,14 +51,14 @@ function localNote(brightness: number, motion: number | null) {
   return `Local frame read: ${light} lighting, ${movement}.`
 }
 
-const assessmentPrompt = 'Assess this dashboard camera snapshot briefly. Focus on posture, presence, workspace state, lighting, and whether Brandon appears actively working. Do not identify private text on screen.'
+const assessmentPrompt = 'Briefly assess only meaningful changes in this dashboard camera snapshot. Focus on whether Brandon is present, away, moving, focused, using a phone, or interrupted; mention new or changed people, animals, or notable objects. Do not restate stable background details such as wall color, flooring, bed, comforter, fan, or desk unless they changed or affect confidence. Do not identify private text on screen.'
 
 async function postVisionAssessment(endpoint: string, imageDataUrl: string, metadata: Record<string, unknown>) {
   const response = await fetch(endpoint, {
     body: JSON.stringify({
       imageDataUrl,
       metadata,
-      prompt: 'Assess this dashboard camera snapshot briefly. Focus on posture, presence, workspace state, lighting, and whether Brandon appears actively working. Do not identify private text on screen.',
+      prompt: assessmentPrompt,
     }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
@@ -67,9 +72,13 @@ export function KimVisionPanel() {
   const { attachVideo, isActive, isMirrored } = useCamera()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const previousFrameRef = useRef<Uint8ClampedArray | null>(null)
+  const lastBrightnessRef = useRef<number | null>(null)
+  const lastAssessmentAtRef = useRef(0)
   const frameCountRef = useRef(0)
   const [enabled, setEnabled] = useState(false)
   const [frameInterval, setFrameInterval] = useState(1000)
+  const [motionThreshold, setMotionThreshold] = useState(() => Number(window.localStorage.getItem(motionThresholdStorageKey) || 22))
+  const [cooldownSeconds, setCooldownSeconds] = useState(() => Number(window.localStorage.getItem(cooldownStorageKey) || 90))
   const [visionMode, setVisionMode] = useState<VisionMode>(() => {
     const saved = window.localStorage.getItem(visionModeStorageKey)
     return saved === 'proxy' || saved === 'stats' || saved === 'moondream' ? saved : 'moondream'
@@ -84,14 +93,21 @@ export function KimVisionPanel() {
       : 'Local Moondream needs WebGPU. Proxy and stats modes still work.',
     stage: hasBrowserMoondreamSupport() ? 'idle' : 'error',
   })
-  const [assessments, setAssessments] = useState<VisionAssessment[]>([])
+  const [assessments, setAssessments] = useState<VisionAssessment[]>(() => {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(assessmentLogStorageKey) || '[]') as VisionAssessment[]
+      return Array.isArray(parsed) ? parsed.slice(0, 20) : []
+    } catch {
+      return []
+    }
+  })
   const effectiveStatus = !isActive
     ? 'Waiting for camera.'
     : enabled
-      ? `KIM is sampling every ${frameInterval.toLocaleString()} frames in ${visionMode === 'moondream' ? 'local Moondream' : visionMode} mode.`
+      ? `KIM is watching for meaningful changes every ${frameInterval.toLocaleString()} frames.`
       : status
 
-  const captureAndAssess = useCallback(async () => {
+  const captureAndAssess = useCallback(async (trigger = 'manual', forceAssessment = true) => {
     const video = videoRef.current
     if (!video || video.readyState < 2 || isSending) return
     setIsSending(true)
@@ -113,9 +129,27 @@ export function KimVisionPanel() {
       const brightness = averageBrightness(image.data)
       const motion = frameDelta(image.data, previousFrameRef.current)
       previousFrameRef.current = new Uint8ClampedArray(image.data)
+      const brightnessDelta = lastBrightnessRef.current == null ? 0 : Math.abs(brightness - lastBrightnessRef.current)
+      lastBrightnessRef.current = brightness
       const timestamp = new Date().toISOString()
       let note = localNote(brightness, motion)
       const imageDataUrl = canvas.toDataURL('image/jpeg', 0.68)
+      const now = Date.now()
+      const cooldownOpen = now - lastAssessmentAtRef.current >= cooldownSeconds * 1000
+      const meaningfulMotion = motion != null && motion >= motionThreshold
+      const meaningfulLightChange = brightnessDelta >= 14
+      const shouldAssess = forceAssessment || (cooldownOpen && (meaningfulMotion || meaningfulLightChange))
+
+      if (!shouldAssess) {
+        setStatus(`Watching quietly. Motion ${motion == null ? 'baseline' : `${motion}%`} stays below ${motionThreshold}%.`)
+        return
+      }
+
+      const assessmentTrigger = forceAssessment
+        ? trigger
+        : meaningfulMotion
+          ? `motion ${motion}%`
+          : `lighting shift ${brightnessDelta}%`
 
       if (visionMode === 'moondream') {
         try {
@@ -138,18 +172,19 @@ export function KimVisionPanel() {
         })
       }
 
-      setAssessments((current) => [{ brightness, motion, note, timestamp }, ...current].slice(0, 6))
+      lastAssessmentAtRef.current = now
+      setAssessments((current) => [{ brightness, mode: visionMode, motion, note, timestamp, trigger: assessmentTrigger }, ...current].slice(0, 20))
       setStatus(visionMode === 'moondream'
-        ? 'Local Moondream pass complete.'
+        ? `Local Moondream pass complete: ${assessmentTrigger}.`
         : visionMode === 'proxy' && endpoint.trim()
-          ? 'Proxy KIM assessment received.'
-          : 'Local frame stats captured.')
+          ? `Proxy KIM assessment received: ${assessmentTrigger}.`
+          : `Local frame stats captured: ${assessmentTrigger}.`)
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Vision assessment failed.')
     } finally {
       setIsSending(false)
     }
-  }, [endpoint, isMirrored, isSending, modelId, visionMode])
+  }, [cooldownSeconds, endpoint, isMirrored, isSending, modelId, motionThreshold, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
@@ -168,6 +203,18 @@ export function KimVisionPanel() {
   }, [modelId])
 
   useEffect(() => {
+    window.localStorage.setItem(motionThresholdStorageKey, String(motionThreshold))
+  }, [motionThreshold])
+
+  useEffect(() => {
+    window.localStorage.setItem(cooldownStorageKey, String(cooldownSeconds))
+  }, [cooldownSeconds])
+
+  useEffect(() => {
+    window.localStorage.setItem(assessmentLogStorageKey, JSON.stringify(assessments))
+  }, [assessments])
+
+  useEffect(() => {
     if (!enabled || !isActive) return undefined
     let cancelled = false
     let requestId = 0
@@ -175,7 +222,7 @@ export function KimVisionPanel() {
     function tick() {
       if (cancelled) return
       frameCountRef.current += 1
-      if (frameCountRef.current % frameInterval === 0) void captureAndAssess()
+      if (frameCountRef.current % frameInterval === 0) void captureAndAssess('change detected', false)
       requestId = window.requestAnimationFrame(tick)
     }
 
@@ -219,7 +266,7 @@ export function KimVisionPanel() {
           </select>
         </label>
         <label htmlFor="kim-vision-interval">
-          <span>Frame interval</span>
+          <span>Watch interval</span>
           <input
             id="kim-vision-interval"
             min={120}
@@ -227,6 +274,30 @@ export function KimVisionPanel() {
             step={20}
             type="number"
             value={frameInterval}
+          />
+        </label>
+        <label htmlFor="kim-vision-threshold">
+          <span>Motion trigger</span>
+          <input
+            id="kim-vision-threshold"
+            max={60}
+            min={6}
+            onChange={(event) => setMotionThreshold(Number(event.target.value))}
+            step={1}
+            type="number"
+            value={motionThreshold}
+          />
+        </label>
+        <label htmlFor="kim-vision-cooldown">
+          <span>Cooldown seconds</span>
+          <input
+            id="kim-vision-cooldown"
+            max={600}
+            min={20}
+            onChange={(event) => setCooldownSeconds(Number(event.target.value))}
+            step={10}
+            type="number"
+            value={cooldownSeconds}
           />
         </label>
         <label htmlFor="kim-vision-model">
@@ -264,8 +335,11 @@ export function KimVisionPanel() {
         >
           {modelStatus.stage === 'loading' ? 'Loading model...' : 'Load model'}
         </button>
-        <button disabled={!isActive || isSending} onClick={() => void captureAndAssess()} type="button">
+        <button disabled={!isActive || isSending} onClick={() => void captureAndAssess('manual', true)} type="button">
           {isSending ? 'Assessing...' : 'Analyze now'}
+        </button>
+        <button disabled={assessments.length === 0} onClick={() => setAssessments([])} type="button">
+          Clear log
         </button>
       </div>
 
@@ -285,7 +359,7 @@ export function KimVisionPanel() {
           <div key={assessment.timestamp}>
             <strong>{new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(assessment.timestamp))}</strong>
             <p>{assessment.note}</p>
-            <span>Light {assessment.brightness}% · Motion {assessment.motion == null ? 'baseline' : `${assessment.motion}%`}</span>
+            <span>{assessment.trigger} · Light {assessment.brightness}% · Motion {assessment.motion == null ? 'baseline' : `${assessment.motion}%`}</span>
           </div>
         ))}
       </div>

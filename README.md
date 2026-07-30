@@ -39,7 +39,7 @@ Build order:
 - Phase 6 stores dashboard config in the Replit proxy at `data/config.json` for Lindy/browser remote management, with browser `localStorage` fallback.
 - Phase 7 KIM mic/camera processing is browser-local only. ElevenLabs API key is never committed or synced to the proxy; it is stored only in browser localStorage through KIM settings.
 - The Studio Camera panel uses browser `getUserMedia` for a local-only webcam preview. It does not record, upload, or send video to a server.
-- The KIM Vision panel samples the shared Studio Camera stream only when camera preview is active and analysis is enabled. It now defaults to local Moondream2 inference through Hugging Face Transformers.js so routine visual assessments avoid paid vision-token costs. Proxy endpoint mode remains available as a fallback.
+- The KIM Vision panel samples the shared Studio Camera stream only when camera preview is active and analysis is enabled. It now defaults to local Moondream2 inference through Hugging Face Transformers.js, but uses event-driven triggers so routine visual assessments avoid paid vision-token costs and unnecessary local model runs. Proxy endpoint mode remains available as a fallback.
 - Phase 8 turns the 3D Sandbox panel into a mode-switched tool: Sandbox mode remains local/freeform, and World mode loads persistent scene state from the Replit proxy.
 - The ROAM Interaction Library PDF has been converted into a portable interaction grammar for the dashboard, ROAM, Unreal Engine, and future projects. Canonical files live in `world-design/`.
 
@@ -143,7 +143,10 @@ Status:
 
 - Camera-aware visual assessment panel shipped.
 - Uses the existing Studio Camera stream and stays inactive while the camera is off.
-- Default sampling is every 1,000 rendered frames, with a manual Analyze Now button.
+- Default watch interval is every 1,000 rendered frames, with a manual Analyze Now button.
+- Automatic model assessments are event-driven: cheap local brightness/motion checks run first, and Moondream/proxy analysis fires only when motion or lighting crosses configurable thresholds and the cooldown window is open.
+- Repeated stable background details are discouraged in the vision prompt so KIM focuses on changed people, animals, objects, posture, activity, or interruptions.
+- Recent KIM Vision assessments persist to browser `localStorage` with trigger, brightness, motion, mode, timestamp, and note.
 - Local frame stats include brightness and frame-to-frame motion.
 - Local Moondream2 assessment is the default mode. The first use downloads `Xenova/moondream2` from Hugging Face and runs it in the browser with WebGPU through `@huggingface/transformers`.
 - Local mode does not send snapshots to the Replit proxy or a paid vision API. It only downloads/cache-loads model files from Hugging Face.
