@@ -28,6 +28,23 @@ function multiplyVector(target: any, source: { x: number; y: number; z: number }
   target.set(target.x * source.x, target.y * source.y, target.z * source.z)
 }
 
+function objectValue(value: unknown) {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : {}
+}
+
+function numberValue(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function colorValue(value: unknown, fallback: number) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value.replace('#', ''), 16)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+  return fallback
+}
+
 export function WorldEngine({ config }: WorldEngineProps) {
   const { error, isLoading, logInteraction, refresh, resetWorld, selectedObjectMap, state } = useWorld()
   const [renderStatus, setRenderStatus] = useState('Loading persistent world...')
@@ -91,37 +108,39 @@ export function WorldEngine({ config }: WorldEngineProps) {
         const safeLabelContainer: HTMLDivElement = labelContainer
 
         const scene = new THREE.Scene()
-        scene.background = new THREE.Color(0x040710)
-        scene.fog = new THREE.Fog(0x040710, 18, 70)
+        scene.background = new THREE.Color(0x030711)
+        scene.fog = new THREE.Fog(0x030711, 22, 82)
 
         const renderer = new THREE.WebGLRenderer({ antialias: true })
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
         renderer.setSize(safeContainer.clientWidth, safeContainer.clientHeight)
         safeContainer.appendChild(renderer.domElement)
 
-        const camera = new THREE.PerspectiveCamera(48, safeContainer.clientWidth / safeContainer.clientHeight, 0.1, 1000)
-        camera.position.set(9, 7, 11)
+        const camera = new THREE.PerspectiveCamera(52, safeContainer.clientWidth / safeContainer.clientHeight, 0.1, 1000)
+        camera.position.set(8, 5.6, 15)
 
         const controls = new orbitModule.OrbitControls(camera, renderer.domElement)
         controls.enableDamping = true
-        controls.target.set(0, 1, 0)
+        controls.target.set(0, 1, 3)
 
         const root = new THREE.Group()
         root.name = 'Persistent World'
         scene.add(root)
 
         const grid = new THREE.GridHelper(40, 40, 0x00e5ff, 0x17324b)
+        grid.material.transparent = true
+        grid.material.opacity = 0.18
         scene.add(grid)
         const axes = new THREE.AxesHelper(4)
         axes.visible = false
         scene.add(axes)
 
-        scene.add(new THREE.HemisphereLight(0xc8f7ff, 0x07101e, 1.8))
-        const key = new THREE.DirectionalLight(0xffffff, 2.2)
-        key.position.set(7, 10, 6)
+        scene.add(new THREE.HemisphereLight(0x8fdfff, 0x030711, 1.35))
+        const key = new THREE.DirectionalLight(0xffffff, 1.65)
+        key.position.set(6, 12, 10)
         scene.add(key)
-        const rim = new THREE.PointLight(0xff2fb3, 18, 28)
-        rim.position.set(-8, 5, -7)
+        const rim = new THREE.PointLight(0xff2fb3, 8, 30)
+        rim.position.set(-8, 5, -10)
         scene.add(rim)
 
         const raycaster = new THREE.Raycaster()
@@ -181,6 +200,50 @@ export function WorldEngine({ config }: WorldEngineProps) {
           return mesh
         }
 
+        function primitiveFor(object: WorldObject) {
+          const primitive = objectValue(object.properties.primitive)
+          const kind = typeof primitive.kind === 'string' ? primitive.kind : ''
+          if (!kind) return null
+
+          const dimensions = objectValue(primitive.dimensions)
+          const materialConfig = objectValue(primitive.material)
+          const color = colorValue(materialConfig.color, 0x101b2b)
+          const emissive = colorValue(materialConfig.emissive, 0x000000)
+          const opacity = numberValue(materialConfig.opacity, 1)
+          const material = new THREE.MeshStandardMaterial({
+            color,
+            emissive,
+            metalness: numberValue(materialConfig.metalness, 0.12),
+            opacity,
+            roughness: numberValue(materialConfig.roughness, 0.58),
+            transparent: opacity < 1,
+          })
+
+          const width = numberValue(dimensions.x, 1)
+          const height = numberValue(dimensions.y, 1)
+          const depth = numberValue(dimensions.z, 1)
+          const geometry = kind === 'cylinder'
+            ? new THREE.CylinderGeometry(width, width, height, 24)
+            : new THREE.BoxGeometry(width, height, depth)
+          const mesh = new THREE.Mesh(geometry, material)
+          mesh.position.y = height / 2
+          const group = new THREE.Group()
+          group.add(mesh)
+
+          const lightConfig = objectValue(primitive.light)
+          if (lightConfig.enabled === true) {
+            const light = new THREE.PointLight(
+              colorValue(lightConfig.color, emissive || color),
+              numberValue(lightConfig.intensity, 3),
+              numberValue(lightConfig.distance, 12),
+            )
+            light.position.set(0, numberValue(lightConfig.y, height + 0.5), 0)
+            group.add(light)
+          }
+
+          return group
+        }
+
         function markObject(group: any, object: WorldObject) {
           if (!object.interactable) {
             group.name = object.name
@@ -232,7 +295,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
 
         function addPlaceholder(object: WorldObject) {
           const group = new THREE.Group()
-          group.add(placeholderFor(object))
+          group.add(primitiveFor(object) ?? placeholderFor(object))
           applyWorldTransform(group, object)
           markObject(group, object)
           root.add(group)
@@ -249,6 +312,18 @@ export function WorldEngine({ config }: WorldEngineProps) {
           setRenderStatus(`Loading ${objects.length} world objects...`)
 
           objects.forEach((object) => {
+            const primitive = primitiveFor(object)
+            if (primitive) {
+              const group = new THREE.Group()
+              group.add(primitive)
+              applyWorldTransform(group, object)
+              markObject(group, object)
+              root.add(group)
+              runtime.objectGroups.set(object.id, group)
+              if (object.interactable) addLabel(object)
+              return
+            }
+
             if (!object.modelUrl) {
               addPlaceholder(object)
               return
