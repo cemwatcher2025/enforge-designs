@@ -117,11 +117,11 @@ export function WorldEngine({ config }: WorldEngineProps) {
         safeContainer.appendChild(renderer.domElement)
 
         const camera = new THREE.PerspectiveCamera(52, safeContainer.clientWidth / safeContainer.clientHeight, 0.1, 1000)
-        camera.position.set(8, 5.6, 15)
+        camera.position.set(7.5, 5.2, 17)
 
         const controls = new orbitModule.OrbitControls(camera, renderer.domElement)
         controls.enableDamping = true
-        controls.target.set(0, 1, 3)
+        controls.target.set(0, 0.8, -3.5)
 
         const root = new THREE.Group()
         root.name = 'Persistent World'
@@ -413,8 +413,9 @@ export function WorldEngine({ config }: WorldEngineProps) {
             point.project(camera)
             const x = (point.x * 0.5 + 0.5) * width
             const y = (-point.y * 0.5 + 0.5) * height
+            const withinViewport = x > 18 && x < width - 18 && y > 18 && y < height - 18
             element.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`
-            element.dataset.visible = distance < 28 && point.z < 1 ? 'true' : 'false'
+            element.dataset.visible = distance < 28 && point.z < 1 && withinViewport ? 'true' : 'false'
           })
         }
 

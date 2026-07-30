@@ -162,6 +162,13 @@
   grid-template-columns: 1fr;
 }
 
+.world-summary > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
 .world-summary span,
 .world-panel-section p,
 .world-details dd,
