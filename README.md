@@ -38,6 +38,7 @@ Build order:
 - Phase 5 Ministry Panel reads through the Replit proxy. The public frontend never receives the Ministry Companion token.
 - Phase 6 stores dashboard config in the Replit proxy at `data/config.json` for Lindy/browser remote management, with browser `localStorage` fallback.
 - Phase 7 KIM mic/camera processing is browser-local only. ElevenLabs API key is never committed or synced to the proxy; it is stored only in browser localStorage through KIM settings.
+- The Studio Camera panel uses browser `getUserMedia` for a local-only webcam preview. It does not record, upload, or send video to a server.
 - Phase 8 turns the 3D Sandbox panel into a mode-switched tool: Sandbox mode remains local/freeform, and World mode loads persistent scene state from the Replit proxy.
 - The ROAM Interaction Library PDF has been converted into a portable interaction grammar for the dashboard, ROAM, Unreal Engine, and future projects. Canonical files live in `world-design/`.
 
@@ -125,6 +126,15 @@ Phase 7 status:
 - Voice commands shipped for showing/hiding panels, opening projects, switching theme, reading ministry stats, checking unread email/calendar placeholders, staging ministry hours, help, sleep, and wake.
 - Camera presence detection shipped with hidden video/canvas frame diffing, privacy dots, and no recording or uploads.
 - Admin KIM settings shipped; API key remains local and is stripped from remote admin config sync.
+
+### Studio Camera
+
+Status:
+
+- Local camera preview panel shipped.
+- Start, stop, camera selector, mirror toggle, and local PNG snapshot download shipped.
+- Camera stream stays in the browser; no recording or upload behavior is implemented.
+- Requires HTTPS or localhost browser permissions for camera access.
 
 ## Future Panels
 

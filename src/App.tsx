@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminPanel } from './components/AdminPanel'
+import { CameraPanel } from './components/CameraPanel'
 import { CommsHub } from './components/CommsHub'
 import { KIMSystem } from './components/KIMSystem'
 import { MinistryPanel } from './components/MinistryPanel'
@@ -530,7 +531,11 @@ function App() {
       return <Sandbox3D sandboxConfig={adminConfig.sandbox3d} worldConfig={adminConfig.world} />
     }
 
-    return <MinistryPanel config={adminConfig.ministry} logPrefill={ministryLogPrefill} />
+    if (id === 'ministry') {
+      return <MinistryPanel config={adminConfig.ministry} logPrefill={ministryLogPrefill} />
+    }
+
+    return <CameraPanel />
   }
 
   if (route === 'admin') {

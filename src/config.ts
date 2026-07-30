@@ -2,7 +2,7 @@ export type ServiceState = 'online' | 'pending' | 'offline'
 
 export type Accent = 'cyan' | 'magenta' | 'lime' | 'orange'
 
-export type PanelId = 'logistics' | 'communications' | 'coding' | 'documents' | 'sandbox3d' | 'ministry' | 'settings'
+export type PanelId = 'logistics' | 'communications' | 'coding' | 'documents' | 'sandbox3d' | 'ministry' | 'settings' | 'camera'
 
 export type ThemeMode = 'dark' | 'light'
 
@@ -153,6 +153,7 @@ export const defaultPanels: PanelConfig[] = [
   { id: 'settings', label: 'Settings', visible: true },
   { id: 'sandbox3d', label: '3D Sandbox', visible: true },
   { id: 'ministry', label: 'Ministry', visible: true },
+  { id: 'camera', label: 'Studio Camera', visible: true },
 ]
 
 export const defaultApiEndpoints: ApiEndpointConfig[] = [
@@ -220,6 +221,16 @@ export const defaultAdminConfig: AdminConfig = {
   world: defaultWorldEngineConfig,
 }
 
+function normalizePanels(panels: PanelConfig[] | undefined) {
+  if (!panels) return defaultAdminConfig.panels
+  const panelMap = new Map(panels.map((panel) => [panel.id, panel]))
+  const normalizedPanels = panels.filter((panel) => defaultPanels.some((defaultPanel) => defaultPanel.id === panel.id))
+  defaultPanels.forEach((defaultPanel) => {
+    if (!panelMap.has(defaultPanel.id)) normalizedPanels.push(defaultPanel)
+  })
+  return normalizedPanels
+}
+
 export function normalizeAdminConfig(config: Partial<AdminConfig> & {
   documentLinks?: DocumentLink[]
   projectCards?: ProjectLink[]
@@ -231,7 +242,7 @@ export function normalizeAdminConfig(config: Partial<AdminConfig> & {
     documents: config.documents ?? config.documentLinks ?? defaultAdminConfig.documents,
     kim: { ...defaultAdminConfig.kim, ...config.kim },
     ministry: { ...defaultAdminConfig.ministry, ...config.ministry },
-    panels: config.panels ?? defaultAdminConfig.panels,
+    panels: normalizePanels(config.panels),
     projects: config.projects ?? config.projectCards ?? defaultAdminConfig.projects,
     sandbox3d: { ...defaultAdminConfig.sandbox3d, ...config.sandbox3d },
     theme: config.theme ?? defaultAdminConfig.theme,
