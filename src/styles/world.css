@@ -347,6 +347,22 @@
   margin: 0;
 }
 
+.world-interaction-chain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.world-interaction-chain span {
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  background: rgba(0, 229, 255, 0.08);
+  color: #ccf8ff;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 4px 6px;
+  text-transform: uppercase;
+}
+
 .world-details button:disabled {
   cursor: not-allowed;
   opacity: 0.42;

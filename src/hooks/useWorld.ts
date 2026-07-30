@@ -13,6 +13,7 @@ export type WorldObject = {
   description: string
   id: string
   interactable: boolean
+  interactions?: WorldInteractionType[]
   interactionType: WorldInteractionType
   modelUrl: string
   name: string

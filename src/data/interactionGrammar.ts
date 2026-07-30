@@ -68,12 +68,47 @@ export const roamInteractionIds = [
 
 export type RoamInteractionId = typeof roamInteractionIds[number]
 
+const roamInteractionIdSet = new Set<string>(roamInteractionIds)
+
 export const interactionGrammarReference = {
   csv: 'world-design/interaction-library.csv',
   json: 'world-design/interaction-library.json',
   markdown: 'world-design/interaction-library.md',
   sourcePdf: 'ROAM_Interaction_Library.pdf',
 } as const
+
+export function isRoamInteractionId(value: unknown): value is RoamInteractionId {
+  return typeof value === 'string' && roamInteractionIdSet.has(value)
+}
+
+export function getObjectInteractionChain(object: {
+  interactionType?: unknown
+  interactions?: unknown
+  properties?: Record<string, unknown>
+}) {
+  const rootInteractions = Array.isArray(object.interactions)
+    ? object.interactions.filter(isRoamInteractionId)
+    : []
+  const propertyInteractions = Array.isArray(object.properties?.interactionChain)
+    ? object.properties.interactionChain.filter(isRoamInteractionId)
+    : []
+  const primary = isRoamInteractionId(object.interactionType) ? object.interactionType : 'examine'
+  const chain = rootInteractions.length > 0
+    ? rootInteractions
+    : propertyInteractions.length > 0
+      ? propertyInteractions
+      : [primary]
+
+  return chain.length > 0 ? chain : [primary]
+}
+
+export function getPrimaryWorldInteraction(object: {
+  interactionType?: unknown
+  interactions?: unknown
+  properties?: Record<string, unknown>
+}) {
+  return getObjectInteractionChain(object)[0]
+}
 
 export function formatInteractionLabel(value: string) {
   return value

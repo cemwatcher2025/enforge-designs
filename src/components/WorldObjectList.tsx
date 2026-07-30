@@ -1,4 +1,5 @@
 import type { WorldObject } from '../hooks/useWorld'
+import { formatInteractionLabel, getPrimaryWorldInteraction } from '../data/interactionGrammar'
 
 type WorldObjectListProps = {
   interactedObjectIds: Set<string>
@@ -37,7 +38,7 @@ export function WorldObjectList({
             type="button"
           >
             <span>{object.name}</span>
-            <em>{object.interactable ? object.interactionType : 'static'}</em>
+            <em>{object.interactable ? formatInteractionLabel(getPrimaryWorldInteraction(object)) : 'static'}</em>
           </button>
         ))}
       </div>

@@ -150,6 +150,7 @@ Phase 8 status:
 - World interactions post to `POST /api/world/interactions` and persist through the proxy.
 - World reset is available in the UI with confirmation.
 - World object `interactionType` now accepts the expanded ROAM interaction grammar instead of only `examine`, `repair`, `collect`, and `activate`.
+- World objects may include `interactions` or `properties.interactionChain`; the frontend reads both so old proxy state and new proxy state remain compatible.
 - Stage reset shipped: the previous experimental object field has been replaced by Signal Station One, a coherent level with Poly Haven CC0 environment assets, gameplay-critical interactables, and non-interactive atmosphere/decor.
 - Signal Station One has a repeatable builder script at `scripts/build-signal-station-one.mjs`; it resets the proxy world and rebuilds the authored stage from structured world objects.
 - Procedural world primitives are supported through object `properties.primitive` for floor slabs, walls, glow strips, light volumes, and other non-asset set dressing.

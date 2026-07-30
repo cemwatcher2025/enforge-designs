@@ -1,5 +1,5 @@
 import type { WorldInteractionLog, WorldObject } from '../hooks/useWorld'
-import { formatInteractionLabel } from '../data/interactionGrammar'
+import { formatInteractionLabel, getObjectInteractionChain, getPrimaryWorldInteraction } from '../data/interactionGrammar'
 
 type WorldInteractionProps = {
   interactions: WorldInteractionLog[]
@@ -14,6 +14,9 @@ function timeLabel(value: string) {
 }
 
 export function WorldInteraction({ interactions, selectedObject, onInteract }: WorldInteractionProps) {
+  const selectedInteractionChain = selectedObject ? getObjectInteractionChain(selectedObject) : []
+  const primaryInteraction = selectedObject ? getPrimaryWorldInteraction(selectedObject) : 'examine'
+
   return (
     <>
       <section className="world-panel-section world-details">
@@ -29,11 +32,20 @@ export function WorldInteraction({ interactions, selectedObject, onInteract }: W
               </div>
               <div>
                 <dt>Interaction</dt>
-                <dd>{selectedObject.interactable ? formatInteractionLabel(selectedObject.interactionType) : 'Static'}</dd>
+                <dd>{selectedObject.interactable ? formatInteractionLabel(primaryInteraction) : 'Static'}</dd>
               </div>
             </dl>
+            {selectedInteractionChain.length > 1 ? (
+              <div className="world-interaction-chain" aria-label="Interaction chain">
+                {selectedInteractionChain.map((interaction, index) => (
+                  <span key={`${interaction}-${index}`}>
+                    {formatInteractionLabel(interaction)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <button disabled={!selectedObject.interactable} onClick={() => onInteract(selectedObject)} type="button">
-              {formatInteractionLabel(selectedObject.interactionType)}
+              {formatInteractionLabel(primaryInteraction)}
             </button>
           </>
         ) : (

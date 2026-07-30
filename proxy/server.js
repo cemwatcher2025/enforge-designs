@@ -251,11 +251,17 @@ function normalizeWorldObject(object, fallbackId = '') {
   const interactionType = worldInteractionTypes.has(source.interactionType)
     ? source.interactionType
     : 'examine'
+  const propertyInteractionChain = Array.isArray(asObject(source.properties).interactionChain)
+    ? asObject(source.properties).interactionChain
+    : []
+  const interactions = (Array.isArray(source.interactions) ? source.interactions : propertyInteractionChain)
+    .filter((interaction) => worldInteractionTypes.has(interaction))
 
   return {
     description: typeof source.description === 'string' ? source.description : '',
     id,
     interactable: source.interactable !== false,
+    interactions,
     interactionType,
     modelUrl: typeof source.modelUrl === 'string' ? source.modelUrl : '',
     name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : 'World Object',
