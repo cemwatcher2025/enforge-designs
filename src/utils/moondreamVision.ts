@@ -81,12 +81,10 @@ export async function assessWithMoondream(
   onStatus?.({ detail: 'Moondream is reading the current camera frame.', stage: 'analyzing' })
 
   const text = `<image>\n\nQuestion: ${prompt}\n\nAnswer:`
-  const textInputs = tokenizer(text)
   const image = await transformers.RawImage.fromURL(imageDataUrl)
-  const visionInputs = await processor(image)
+  const inputs = await processor(image, text)
   const output = await model.generate({
-    ...textInputs,
-    ...visionInputs,
+    ...inputs,
     do_sample: false,
     max_new_tokens: 80,
   })
