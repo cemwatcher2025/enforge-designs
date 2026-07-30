@@ -80,11 +80,20 @@ export async function assessWithMoondream(
   const { model, processor, tokenizer, transformers } = await loadMoondream(modelId, onStatus)
   onStatus?.({ detail: 'Moondream is reading the current camera frame.', stage: 'analyzing' })
 
-  const text = `<image>\n\nQuestion: ${prompt}\n\nAnswer:`
   const image = await transformers.RawImage.fromURL(imageDataUrl)
-  const inputs = await processor(image, text)
+  const visionInputs = await processor(image)
+  const pixelValues = visionInputs.pixel_values
+  if (!pixelValues?.dims) throw new Error('Moondream image processor did not return pixel values.')
+
+  const [height, width] = pixelValues.dims.slice(-2)
+  const patchSize = Number((processor as { config?: { patch_size?: number } }).config?.patch_size ?? 14)
+  const imageTokenCount = Math.floor(height / patchSize) * Math.floor(width / patchSize)
+  const imageTokens = '<image>'.repeat(imageTokenCount)
+  const textInputs = tokenizer(`${imageTokens}\n\nQuestion: ${prompt}\n\nAnswer:`)
+
   const output = await model.generate({
-    ...inputs,
+    ...textInputs,
+    ...visionInputs,
     do_sample: false,
     max_new_tokens: 80,
   })
