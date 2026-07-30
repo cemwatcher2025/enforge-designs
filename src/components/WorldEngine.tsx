@@ -470,7 +470,8 @@ export function WorldEngine({ config }: WorldEngineProps) {
             const y = (-point.y * 0.5 + 0.5) * height
             const withinViewport = x > 18 && x < width - 18 && y > 18 && y < height - 18
             element.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`
-            element.dataset.visible = distance < 20 && point.z < 1 && withinViewport ? 'true' : 'false'
+            const visibleDistance = runtime.isPlayMode ? 6 : 20
+            element.dataset.visible = distance < visibleDistance && point.z < 1 && withinViewport ? 'true' : 'false'
           })
         }
 
