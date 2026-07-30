@@ -2,7 +2,7 @@ export type ServiceState = 'online' | 'pending' | 'offline'
 
 export type Accent = 'cyan' | 'magenta' | 'lime' | 'orange'
 
-export type PanelId = 'logistics' | 'communications' | 'coding' | 'documents' | 'sandbox3d' | 'ministry' | 'settings' | 'camera'
+export type PanelId = 'logistics' | 'communications' | 'coding' | 'documents' | 'sandbox3d' | 'ministry' | 'settings' | 'camera' | 'kimVision'
 
 export type ThemeMode = 'dark' | 'light'
 
@@ -154,6 +154,7 @@ export const defaultPanels: PanelConfig[] = [
   { id: 'sandbox3d', label: '3D Sandbox', visible: true },
   { id: 'ministry', label: 'Ministry', visible: true },
   { id: 'camera', label: 'Studio Camera', visible: true },
+  { id: 'kimVision', label: 'KIM Vision', visible: true },
 ]
 
 export const defaultApiEndpoints: ApiEndpointConfig[] = [

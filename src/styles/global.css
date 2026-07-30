@@ -825,6 +825,106 @@ h2 {
   font-size: 13px;
 }
 
+.kim-vision-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.kim-vision-hidden-video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.kim-vision-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 86px;
+  padding: 14px;
+  border: 1px solid rgba(64, 255, 106, 0.22);
+  background:
+    linear-gradient(135deg, rgba(64, 255, 106, 0.1), transparent 56%),
+    rgba(255, 255, 255, 0.055);
+}
+
+.kim-vision-console strong,
+.kim-vision-console span {
+  display: block;
+}
+
+.kim-vision-console strong {
+  margin-bottom: 6px;
+  color: #40ff6a;
+  font-size: 18px;
+}
+
+.kim-vision-console span {
+  color: #a9b8d7;
+  line-height: 1.45;
+}
+
+.kim-vision-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.kim-vision-controls label {
+  display: grid;
+  gap: 8px;
+}
+
+.kim-vision-controls span {
+  color: #ff2fb3;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.kim-vision-controls input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #05070d;
+  color: #f3f7ff;
+  padding: 0 12px;
+}
+
+.kim-vision-feed {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.kim-vision-feed > p,
+.kim-vision-feed div {
+  margin: 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.kim-vision-feed strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #00e5ff;
+}
+
+.kim-vision-feed p {
+  margin: 0 0 8px;
+  color: #f3f7ff;
+  line-height: 1.45;
+}
+
+.kim-vision-feed span {
+  color: #a9b8d7;
+  font-size: 12px;
+}
+
 .admin-shell {
   width: min(1500px, 100%);
 }
@@ -981,6 +1081,7 @@ body[data-theme="light"] .quick-reply textarea,
 body[data-theme="light"] .active-project select,
 body[data-theme="light"] .document-search input,
 body[data-theme="light"] .camera-controls select,
+body[data-theme="light"] .kim-vision-controls input,
 body[data-theme="light"] .theme-toggle,
 body[data-theme="light"] .endpoint-row input,
 body[data-theme="light"] .editable-card input,
@@ -1030,5 +1131,9 @@ body[data-theme="light"] .editable-list > input {
   .terminal-feed em,
   .terminal-feed strong {
     text-align: left;
+  }
+
+  .kim-vision-console {
+    grid-template-columns: 1fr;
   }
 }

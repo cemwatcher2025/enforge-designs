@@ -3,6 +3,7 @@ import { AdminPanel } from './components/AdminPanel'
 import { CameraPanel } from './components/CameraPanel'
 import { CommsHub } from './components/CommsHub'
 import { KIMSystem } from './components/KIMSystem'
+import { KimVisionPanel } from './components/KimVisionPanel'
 import { MinistryPanel } from './components/MinistryPanel'
 import { Sandbox3D } from './components/Sandbox3D'
 import { defaultAdminConfig, normalizeAdminConfig, type Accent, type AdminConfig, type PanelId, type ServiceState } from './config'
@@ -535,7 +536,11 @@ function App() {
       return <MinistryPanel config={adminConfig.ministry} logPrefill={ministryLogPrefill} />
     }
 
-    return <CameraPanel />
+    if (id === 'camera') {
+      return <CameraPanel />
+    }
+
+    return <KimVisionPanel />
   }
 
   if (route === 'admin') {

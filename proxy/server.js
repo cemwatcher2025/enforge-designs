@@ -33,6 +33,7 @@ function env(...names) {
 }
 
 const usageWebhookUrl = env('USAGE_LOG_WEBHOOK_URL', 'USAGELOGWEBHOOK_URL')
+const kimVisionEndpoint = env('KIM_VISION_ENDPOINT', 'KIMVISION_ENDPOINT')
 
 const defaultDashboardConfig = {
   activeProject: 'enforge',
@@ -54,6 +55,8 @@ const defaultDashboardConfig = {
     { id: 'settings', label: 'Settings', visible: true },
     { id: 'sandbox3d', label: '3D Sandbox', visible: true },
     { id: 'ministry', label: 'Ministry', visible: true },
+    { id: 'camera', label: 'Studio Camera', visible: true },
+    { id: 'kimVision', label: 'KIM Vision', visible: true },
   ],
   projectCards: [
     {
@@ -206,7 +209,7 @@ app.use(cors({
     callback(null, false)
   },
 }))
-app.use(express.json())
+app.use(express.json({ limit: '2mb' }))
 
 function joinUrl(baseUrl, path) {
   return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
@@ -484,6 +487,7 @@ app.get('/', (_request, response) => {
       '/api/ministry/stats',
       '/api/ministry/hours',
       '/api/kim/status',
+      '/api/kim/vision',
       '/api/world/state',
       '/api/world/objects',
       '/api/world/interactions',
@@ -551,6 +555,36 @@ app.post('/api/ministry/hours', async (request, response) => {
 app.get('/api/kim/status', async (_request, response) => {
   const result = await callUpstream(upstreams.kim, upstreams.kim.statusPath, 'KIM Assistant API', 'Fetch KIM status')
   response.status(result.status).json(result.ok ? normalizeKimStatus(result.body) : result.body)
+})
+
+app.post('/api/kim/vision', async (request, response) => {
+  if (!kimVisionEndpoint) {
+    await logUsage('KIM Vision API', 'Assess camera snapshot', false)
+    response.status(501).json({ error: 'KIM_VISION_ENDPOINT is not configured on the proxy.' })
+    return
+  }
+
+  const startedAt = Date.now()
+  try {
+    const upstreamResponse = await fetch(kimVisionEndpoint, {
+      body: JSON.stringify(request.body),
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${upstreams.kim.token}`,
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+    })
+    const payload = await upstreamResponse.json().catch(() => ({}))
+    await logUsage('KIM Vision API', 'Assess camera snapshot', upstreamResponse.ok)
+    response.status(upstreamResponse.status).json({
+      ...payload,
+      latencyMs: Date.now() - startedAt,
+    })
+  } catch (error) {
+    await logUsage('KIM Vision API', 'Assess camera snapshot', false)
+    response.status(502).json({ error: error.message, latencyMs: Date.now() - startedAt })
+  }
 })
 
 app.get('/api/health', async (_request, response) => {
