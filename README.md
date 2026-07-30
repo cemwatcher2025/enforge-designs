@@ -148,7 +148,7 @@ Phase 8 status:
 - Non-interactive world decor is supported: static props render in the scene without labels, red-dot attention markers, or sidebar clutter.
 - World interactions post to `POST /api/world/interactions` and persist through the proxy.
 - World reset is available in the UI with confirmation.
-- Stage reset in progress: the previous experimental object field is being replaced by a coherent Signal Station level with Poly Haven CC0 environment assets, gameplay-critical interactables, and non-interactive atmosphere/decor.
+- Stage reset shipped: the previous experimental object field has been replaced by Signal Station One, a coherent level with Poly Haven CC0 environment assets, gameplay-critical interactables, and non-interactive atmosphere/decor.
 
 ### Ministry Panel
 
