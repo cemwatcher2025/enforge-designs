@@ -12,6 +12,8 @@ dist
 dist-ssr
 proxy/data/
 *.local
+public/world-assets/polyhaven/fir_tree_01/
+public/world-assets/polyhaven/fir_sapling_medium/
 
 # Editor directories and files
 .vscode/*
