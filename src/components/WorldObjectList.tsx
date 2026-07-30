@@ -2,7 +2,7 @@ import type { WorldObject } from '../hooks/useWorld'
 import { formatInteractionLabel, getPrimaryWorldInteraction } from '../data/interactionGrammar'
 
 type WorldObjectListProps = {
-  interactedObjectIds: Set<string>
+  attentionObjectIds: Set<string>
   objects: WorldObject[]
   selectedObjectId: string | null
   onFocusObject: (id: string) => void
@@ -10,7 +10,7 @@ type WorldObjectListProps = {
 }
 
 export function WorldObjectList({
-  interactedObjectIds,
+  attentionObjectIds,
   objects,
   selectedObjectId,
   onFocusObject,
@@ -29,7 +29,7 @@ export function WorldObjectList({
         ) : interactiveObjects.map((object) => (
           <button
             data-active={selectedObjectId === object.id}
-            data-attention={object.interactable && !interactedObjectIds.has(object.id)}
+            data-attention={object.interactable && attentionObjectIds.has(object.id)}
             key={object.id}
             onClick={() => {
               onSelectObject(object.id)

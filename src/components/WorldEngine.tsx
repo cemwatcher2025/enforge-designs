@@ -10,9 +10,85 @@ type WorldEngineProps = {
   config: WorldEngineConfig
 }
 
+type WorldObjective = {
+  objectName: string
+  title: string
+  hint: string
+  complete: string
+}
+
 const threeUrl = 'https://esm.sh/three@0.160.0'
 const orbitUrl = 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js'
 const gltfUrl = 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js'
+
+const signalStationObjectives: WorldObjective[] = [
+  {
+    complete: 'The threshold has a purpose now.',
+    hint: 'Start at the front gate and read the shape of the route.',
+    objectName: 'Arrival Gate',
+    title: 'Inspect the arrival gate',
+  },
+  {
+    complete: 'The latch fault is understood.',
+    hint: 'The gate mechanism is beside the entrance, low and slightly left.',
+    objectName: 'Gate Latch',
+    title: 'Diagnose the gate latch',
+  },
+  {
+    complete: 'The ledger gives the station a language.',
+    hint: 'Look for the book on the receiving table past the entrance.',
+    objectName: 'Receiving Ledger',
+    title: 'Read the receiving ledger',
+  },
+  {
+    complete: 'The old signal points deeper into the station.',
+    hint: 'The radio sits across the yard, facing the route.',
+    objectName: 'Old Yard Radio',
+    title: 'Listen to the yard radio',
+  },
+  {
+    complete: 'The maintenance bay is reachable.',
+    hint: 'The heavy door marks the transition from yard to workshop.',
+    objectName: 'Workshop Door',
+    title: 'Unlock the workshop door',
+  },
+  {
+    complete: 'The drill press can work again.',
+    hint: 'Find the large old machine in the workshop bay.',
+    objectName: 'Old Drill Press',
+    title: 'Diagnose the drill press',
+  },
+  {
+    complete: 'The station spine is visible.',
+    hint: 'The rugged laptop holds the route map near the back of the workshop.',
+    objectName: 'Signal Laptop',
+    title: 'Read the signal laptop',
+  },
+  {
+    complete: 'The first memory is recovered.',
+    hint: 'The cassette recorder is a small object near the route out of the workshop.',
+    objectName: 'Cassette Recorder',
+    title: 'Collect the cassette recorder',
+  },
+  {
+    complete: 'The overlook accepts the route.',
+    hint: 'Follow the glowing path to the final gate.',
+    objectName: 'Overlook Gate',
+    title: 'Unlock the overlook gate',
+  },
+  {
+    complete: 'The signal has been redirected.',
+    hint: 'The console faces back down the full route.',
+    objectName: 'Signal Console',
+    title: 'Operate the signal console',
+  },
+  {
+    complete: 'Signal Station One is awake.',
+    hint: 'The quiet beacon waits at the end of the overlook.',
+    objectName: 'Beacon Lamp',
+    title: 'Illuminate the beacon',
+  },
+]
 
 function formatVersion(version: number, modified: string | null) {
   if (!modified) return `v${version}`
@@ -57,9 +133,11 @@ export function WorldEngine({ config }: WorldEngineProps) {
   const labelsRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<Record<string, any> | null>(null)
   const attentionRef = useRef<{
+    attentionObjectIds: Set<string>
     interactedObjectIds: Set<string>
     objectMap: Map<string, WorldObject>
   }>({
+    attentionObjectIds: new Set(),
     interactedObjectIds: new Set(),
     objectMap: new Map(),
   })
@@ -76,14 +154,53 @@ export function WorldEngine({ config }: WorldEngineProps) {
     () => nearbyObjectId ? selectedObjectMap.get(nearbyObjectId) ?? null : null,
     [nearbyObjectId, selectedObjectMap],
   )
+  const completedObjectNames = useMemo(() => {
+    const names = new Set<string>()
+    state.interactions.forEach((interaction) => {
+      const object = selectedObjectMap.get(interaction.objectId)
+      if (object) names.add(object.name)
+    })
+    return names
+  }, [selectedObjectMap, state.interactions])
+  const currentObjectiveIndex = useMemo(
+    () => signalStationObjectives.findIndex((objective) => !completedObjectNames.has(objective.objectName)),
+    [completedObjectNames],
+  )
+  const currentObjective = currentObjectiveIndex === -1 ? null : signalStationObjectives[currentObjectiveIndex]
+  const currentObjectiveObject = currentObjective
+    ? state.objects.find((object) => object.name === currentObjective.objectName) ?? null
+    : null
+  const currentObjectiveObjectId = currentObjectiveObject?.id ?? null
+  const attentionObjectIds = useMemo(
+    () => currentObjectiveObjectId ? new Set([currentObjectiveObjectId]) : new Set<string>(),
+    [currentObjectiveObjectId],
+  )
+  const completedObjectiveCount = currentObjectiveIndex === -1 ? signalStationObjectives.length : currentObjectiveIndex
+  const latestCompletedObjective = useMemo(() => {
+    for (let index = signalStationObjectives.length - 1; index >= 0; index -= 1) {
+      const objective = signalStationObjectives[index]
+      if (completedObjectNames.has(objective.objectName)) return objective
+    }
+    return null
+  }, [completedObjectNames])
 
   async function handleInteract(object: WorldObject) {
+    if (currentObjective && object.name !== currentObjective.objectName) {
+      setSelectedObjectId(object.id)
+      setRenderStatus(`${object.name} can wait. ${currentObjective.hint}`)
+      return
+    }
     const interaction = getPrimaryWorldInteraction(object)
     setFlashObjectId(object.id)
-    setRenderStatus(`${formatInteractionLabel(interaction)} logged for ${object.name}.`)
-    await logInteraction(object.id, interaction)
+    const logged = await logInteraction(object.id, interaction)
+    if (logged) {
+      const objective = signalStationObjectives.find((item) => item.objectName === object.name)
+      setRenderStatus(objective?.complete ?? `${formatInteractionLabel(interaction)} logged for ${object.name}.`)
+    }
     window.setTimeout(() => setFlashObjectId(null), 520)
   }
+
+  const nearbyObjectAdvancesObjective = Boolean(nearbyObject && currentObjective && nearbyObject.name === currentObjective.objectName)
 
   function handleResetWorld() {
     if (!window.confirm('Reset the persistent world? This removes all world objects and interactions.')) return
@@ -102,9 +219,9 @@ export function WorldEngine({ config }: WorldEngineProps) {
   }
 
   useEffect(() => {
-    attentionRef.current = { interactedObjectIds, objectMap: selectedObjectMap }
+    attentionRef.current = { attentionObjectIds, interactedObjectIds, objectMap: selectedObjectMap }
     runtimeRef.current?.updateAttentionLabels?.()
-  }, [interactedObjectIds, selectedObjectMap])
+  }, [attentionObjectIds, interactedObjectIds, selectedObjectMap])
 
   useEffect(() => {
     let disposed = false
@@ -309,7 +426,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
         }
 
         function setLabelAttention(element: HTMLDivElement, object: WorldObject | undefined) {
-          element.dataset.attention = object?.interactable && !attentionRef.current.interactedObjectIds.has(object.id) ? 'true' : 'false'
+          element.dataset.attention = object?.interactable && attentionRef.current.attentionObjectIds.has(object.id) ? 'true' : 'false'
         }
 
         function updateAttentionLabels() {
@@ -506,7 +623,8 @@ export function WorldEngine({ config }: WorldEngineProps) {
           let closestId: string | null = null
           let closestDistance = 2.1
           runtime.objectGroups.forEach((group: any, id: string) => {
-            if (!attentionRef.current.objectMap.get(id)?.interactable) return
+            const object = attentionRef.current.objectMap.get(id)
+            if (!object?.interactable) return
             const center = new THREE.Box3().setFromObject(group).getCenter(new THREE.Vector3())
             const distance = player.position.distanceTo(center)
             if (distance < closestDistance) {
@@ -646,10 +764,18 @@ export function WorldEngine({ config }: WorldEngineProps) {
         </div>
         {isPlayMode ? (
           <div className="world-play-card">
-            <strong>{nearbyObject ? nearbyObject.name : 'Explore Signal Station'}</strong>
-            <span>{nearbyObject ? `${formatInteractionLabel(getPrimaryWorldInteraction(nearbyObject))} ready` : 'WASD / arrows to move'}</span>
-            <button disabled={!nearbyObject} onClick={handlePlayInteract} type="button">
-              {nearbyObject ? `${formatInteractionLabel(getPrimaryWorldInteraction(nearbyObject))} [E]` : 'No target nearby'}
+            <strong>{currentObjective ? currentObjective.title : 'Station restored'}</strong>
+            <span>{nearbyObject
+              ? nearbyObjectAdvancesObjective
+                ? `${formatInteractionLabel(getPrimaryWorldInteraction(nearbyObject))} ready`
+                : `${nearbyObject.name} can wait`
+              : currentObjective?.hint ?? 'Signal Station One is awake.'}</span>
+            <button disabled={!nearbyObject || !nearbyObjectAdvancesObjective} onClick={handlePlayInteract} type="button">
+              {nearbyObject
+                ? nearbyObjectAdvancesObjective
+                  ? `${formatInteractionLabel(getPrimaryWorldInteraction(nearbyObject))} [E]`
+                  : 'Wrong station'
+                : `${completedObjectiveCount} / ${signalStationObjectives.length}`}
             </button>
           </div>
         ) : null}
@@ -672,7 +798,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
         </section>
 
         <WorldObjectList
-          interactedObjectIds={interactedObjectIds}
+          attentionObjectIds={attentionObjectIds}
           objects={state.objects}
           onFocusObject={(id) => runtimeRef.current?.focusObject?.(id)}
           onSelectObject={setSelectedObjectId}
@@ -680,9 +806,13 @@ export function WorldEngine({ config }: WorldEngineProps) {
         />
 
         <WorldInteraction
+          completedObjectiveCount={completedObjectiveCount}
+          currentObjective={currentObjective}
           interactions={state.interactions}
+          latestCompletedObjective={latestCompletedObjective}
           onInteract={handleInteract}
           selectedObject={selectedObject}
+          totalObjectiveCount={signalStationObjectives.length}
         />
       </aside>
     </div>

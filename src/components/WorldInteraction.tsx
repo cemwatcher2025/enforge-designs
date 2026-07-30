@@ -2,9 +2,19 @@ import type { WorldInteractionLog, WorldObject } from '../hooks/useWorld'
 import { formatInteractionLabel, getObjectInteractionChain, getPrimaryWorldInteraction } from '../data/interactionGrammar'
 
 type WorldInteractionProps = {
+  completedObjectiveCount: number
+  currentObjective: {
+    hint: string
+    objectName: string
+    title: string
+  } | null
   interactions: WorldInteractionLog[]
+  latestCompletedObjective: {
+    complete: string
+  } | null
   selectedObject: WorldObject | null
   onInteract: (object: WorldObject) => void
+  totalObjectiveCount: number
 }
 
 function timeLabel(value: string) {
@@ -13,12 +23,47 @@ function timeLabel(value: string) {
   return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date)
 }
 
-export function WorldInteraction({ interactions, selectedObject, onInteract }: WorldInteractionProps) {
+export function WorldInteraction({
+  completedObjectiveCount,
+  currentObjective,
+  interactions,
+  latestCompletedObjective,
+  selectedObject,
+  onInteract,
+  totalObjectiveCount,
+}: WorldInteractionProps) {
   const selectedInteractionChain = selectedObject ? getObjectInteractionChain(selectedObject) : []
   const primaryInteraction = selectedObject ? getPrimaryWorldInteraction(selectedObject) : 'examine'
 
   return (
     <>
+      <section className="world-panel-section world-objective">
+        <strong>Current objective</strong>
+        {currentObjective ? (
+          <>
+            <div className="world-objective-meter">
+              <span>{completedObjectiveCount} / {totalObjectiveCount}</span>
+              <div>
+                <i style={{ width: `${(completedObjectiveCount / totalObjectiveCount) * 100}%` }} />
+              </div>
+            </div>
+            <h3>{currentObjective.title}</h3>
+            <p>{currentObjective.hint}</p>
+          </>
+        ) : (
+          <>
+            <div className="world-objective-meter">
+              <span>{totalObjectiveCount} / {totalObjectiveCount}</span>
+              <div>
+                <i style={{ width: '100%' }} />
+              </div>
+            </div>
+            <h3>Station restored</h3>
+            <p>{latestCompletedObjective?.complete ?? 'Signal Station One is awake.'}</p>
+          </>
+        )}
+      </section>
+
       <section className="world-panel-section world-details">
         <strong>Object details</strong>
         {selectedObject ? (

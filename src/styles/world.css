@@ -323,6 +323,45 @@
   font-size: 18px;
 }
 
+.world-objective {
+  border-color: rgba(64, 255, 106, 0.32);
+  background:
+    linear-gradient(135deg, rgba(64, 255, 106, 0.1), transparent 48%),
+    rgba(255, 255, 255, 0.055);
+}
+
+.world-objective h3 {
+  margin: 0;
+  color: #40ff6a;
+  font-size: 17px;
+}
+
+.world-objective-meter {
+  display: grid;
+  gap: 6px;
+}
+
+.world-objective-meter span {
+  color: #f3f7ff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.world-objective-meter div {
+  height: 7px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.world-objective-meter i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #00e5ff, #40ff6a);
+  box-shadow: 0 0 16px rgba(64, 255, 106, 0.58);
+}
+
 .world-details dl {
   display: grid;
   gap: 8px;

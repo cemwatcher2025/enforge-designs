@@ -155,6 +155,7 @@ Phase 8 status:
 - Signal Station One has a repeatable builder script at `scripts/build-signal-station-one.mjs`; it resets the proxy world and rebuilds the authored stage from structured world objects.
 - Procedural world primitives are supported through object `properties.primitive` for floor slabs, walls, glow strips, light volumes, and other non-asset set dressing.
 - World mode now includes an initial Play mode: an on-screen avatar, WASD/arrow movement, follow camera, nearby-object detection, and `E` / button interaction.
+- World mode now includes a first playable objective loop for Signal Station One: one active target at a time, current-objective progress, wrong-object feedback, target-only attention markers, and completion text.
 
 ### Ministry Panel
 
