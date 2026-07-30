@@ -95,10 +95,6 @@
   opacity: 0;
 }
 
-.world-label[data-visible="false"][data-attention="true"] {
-  opacity: 0.46;
-}
-
 .world-label[data-active="true"],
 .world-label[data-hover="true"] {
   border-color: rgba(255, 47, 179, 0.82);
