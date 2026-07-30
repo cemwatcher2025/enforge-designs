@@ -95,7 +95,7 @@ export async function assessWithMoondream(
     ...textInputs,
     ...visionInputs,
     do_sample: false,
-    max_new_tokens: 80,
+    max_new_tokens: 36,
   })
   const decoded = tokenizer.batch_decode(output as Parameters<typeof tokenizer.batch_decode>[0], { skip_special_tokens: false })
   const note = cleanMoondreamOutput(Array.isArray(decoded) ? decoded[0] : String(decoded))

@@ -18,6 +18,7 @@ const visionModeStorageKey = 'enforge-kim-vision-mode'
 const modelStorageKey = 'enforge-kim-vision-model'
 const motionThresholdStorageKey = 'enforge-kim-vision-motion-threshold'
 const cooldownStorageKey = 'enforge-kim-vision-cooldown'
+const deepAutoStorageKey = 'enforge-kim-vision-deep-auto'
 const assessmentLogStorageKey = 'enforge-kim-vision-assessments'
 const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
   || (import.meta.env.VITE_COMMAND_CENTER_PROXY_URL
@@ -51,7 +52,7 @@ function localNote(brightness: number, motion: number | null) {
   return `Local frame read: ${light} lighting, ${movement}.`
 }
 
-const assessmentPrompt = 'Briefly assess only meaningful changes in this dashboard camera snapshot. Focus on whether Brandon is present, away, moving, focused, using a phone, or interrupted; mention new or changed people, animals, or notable objects. Do not restate stable background details such as wall color, flooring, bed, comforter, fan, or desk unless they changed or affect confidence. Do not identify private text on screen.'
+const assessmentPrompt = 'In one short sentence, assess only meaningful changes: Brandon present/away, focused/moving/phone, or new people/animals/objects. Do not restate stable room details. Do not identify private screen text.'
 
 async function postVisionAssessment(endpoint: string, imageDataUrl: string, metadata: Record<string, unknown>) {
   const response = await fetch(endpoint, {
@@ -79,6 +80,7 @@ export function KimVisionPanel() {
   const [frameInterval, setFrameInterval] = useState(1000)
   const [motionThreshold, setMotionThreshold] = useState(() => Number(window.localStorage.getItem(motionThresholdStorageKey) || 22))
   const [cooldownSeconds, setCooldownSeconds] = useState(() => Number(window.localStorage.getItem(cooldownStorageKey) || 90))
+  const [deepAutoEnabled, setDeepAutoEnabled] = useState(() => window.localStorage.getItem(deepAutoStorageKey) === 'true')
   const [visionMode, setVisionMode] = useState<VisionMode>(() => {
     const saved = window.localStorage.getItem(visionModeStorageKey)
     return saved === 'proxy' || saved === 'stats' || saved === 'moondream' ? saved : 'moondream'
@@ -150,8 +152,13 @@ export function KimVisionPanel() {
         : meaningfulMotion
           ? `motion ${motion}%`
           : `lighting shift ${brightnessDelta}%`
+      const runDeepAssessment = forceAssessment || deepAutoEnabled
 
-      if (visionMode === 'moondream') {
+      if (!runDeepAssessment) {
+        note = `Change noticed: ${assessmentTrigger}. ${localNote(brightness, motion)} Deep assessment skipped to keep the dashboard responsive.`
+      }
+
+      if (runDeepAssessment && visionMode === 'moondream') {
         try {
           note = await assessWithMoondream(imageDataUrl, assessmentPrompt, modelId.trim() || defaultMoondreamModelId, setModelStatus)
         } catch (error) {
@@ -161,7 +168,7 @@ export function KimVisionPanel() {
         }
       }
 
-      if (visionMode === 'proxy' && endpoint.trim()) {
+      if (runDeepAssessment && visionMode === 'proxy' && endpoint.trim()) {
         note = await postVisionAssessment(endpoint.trim(), imageDataUrl, {
           brightness,
           frameCount: frameCountRef.current,
@@ -175,7 +182,7 @@ export function KimVisionPanel() {
       lastAssessmentAtRef.current = now
       setAssessments((current) => [{ brightness, mode: visionMode, motion, note, timestamp, trigger: assessmentTrigger }, ...current].slice(0, 20))
       setStatus(visionMode === 'moondream'
-        ? `Local Moondream pass complete: ${assessmentTrigger}.`
+        ? runDeepAssessment ? `Local Moondream pass complete: ${assessmentTrigger}.` : `Change logged without deep model: ${assessmentTrigger}.`
         : visionMode === 'proxy' && endpoint.trim()
           ? `Proxy KIM assessment received: ${assessmentTrigger}.`
           : `Local frame stats captured: ${assessmentTrigger}.`)
@@ -184,7 +191,7 @@ export function KimVisionPanel() {
     } finally {
       setIsSending(false)
     }
-  }, [cooldownSeconds, endpoint, isMirrored, isSending, modelId, motionThreshold, visionMode])
+  }, [cooldownSeconds, deepAutoEnabled, endpoint, isMirrored, isSending, modelId, motionThreshold, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
@@ -209,6 +216,10 @@ export function KimVisionPanel() {
   useEffect(() => {
     window.localStorage.setItem(cooldownStorageKey, String(cooldownSeconds))
   }, [cooldownSeconds])
+
+  useEffect(() => {
+    window.localStorage.setItem(deepAutoStorageKey, String(deepAutoEnabled))
+  }, [deepAutoEnabled])
 
   useEffect(() => {
     window.localStorage.setItem(assessmentLogStorageKey, JSON.stringify(assessments))
@@ -300,6 +311,10 @@ export function KimVisionPanel() {
             value={cooldownSeconds}
           />
         </label>
+        <label className="camera-toggle kim-vision-deep-auto">
+          <input checked={deepAutoEnabled} onChange={(event) => setDeepAutoEnabled(event.target.checked)} type="checkbox" />
+          <span>Deep auto</span>
+        </label>
         <label htmlFor="kim-vision-model">
           <span>HF model</span>
           <input
@@ -346,7 +361,9 @@ export function KimVisionPanel() {
       <div className={`kim-vision-model-status ${modelStatus.stage}`}>
         <strong>{visionMode === 'moondream' ? 'Local model' : visionMode === 'proxy' ? 'Remote endpoint' : 'Cost-free stats'}</strong>
         <span>{visionMode === 'moondream'
-          ? modelStatus.detail
+          ? deepAutoEnabled
+            ? `${modelStatus.detail} Automatic changes can run Moondream.`
+            : `${modelStatus.detail} Automatic changes log fast; Analyze now runs Moondream.`
           : visionMode === 'proxy'
             ? 'Snapshots are sent only to the configured proxy endpoint.'
             : 'No image leaves the browser; only brightness and motion are computed.'}</span>

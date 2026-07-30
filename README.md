@@ -145,6 +145,7 @@ Status:
 - Uses the existing Studio Camera stream and stays inactive while the camera is off.
 - Default watch interval is every 1,000 rendered frames, with a manual Analyze Now button.
 - Automatic model assessments are event-driven: cheap local brightness/motion checks run first, and Moondream/proxy analysis fires only when motion or lighting crosses configurable thresholds and the cooldown window is open.
+- Automatic deep model assessment is disabled by default through the KIM Vision `Deep auto` toggle so meaningful changes can be logged quickly without making the dashboard sluggish. Manual `Analyze now` still runs Moondream.
 - Repeated stable background details are discouraged in the vision prompt so KIM focuses on changed people, animals, objects, posture, activity, or interruptions.
 - Recent KIM Vision assessments persist to browser `localStorage` with trigger, brightness, motion, mode, timestamp, and note.
 - Local frame stats include brightness and frame-to-frame motion.
