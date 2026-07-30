@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorldEngineConfig } from '../config'
+import { formatInteractionLabel } from '../data/interactionGrammar'
 import { useWorld, type WorldObject } from '../hooks/useWorld'
 import { WorldInteraction } from './WorldInteraction'
 import { WorldObjectList } from './WorldObjectList'
@@ -78,7 +79,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
 
   async function handleInteract(object: WorldObject) {
     setFlashObjectId(object.id)
-    setRenderStatus(`${object.interactionType} logged for ${object.name}.`)
+    setRenderStatus(`${formatInteractionLabel(object.interactionType)} logged for ${object.name}.`)
     await logInteraction(object.id, object.interactionType)
     window.setTimeout(() => setFlashObjectId(null), 520)
   }
@@ -645,9 +646,9 @@ export function WorldEngine({ config }: WorldEngineProps) {
         {isPlayMode ? (
           <div className="world-play-card">
             <strong>{nearbyObject ? nearbyObject.name : 'Explore Signal Station'}</strong>
-            <span>{nearbyObject ? `${nearbyObject.interactionType.toUpperCase()} ready` : 'WASD / arrows to move'}</span>
+            <span>{nearbyObject ? `${formatInteractionLabel(nearbyObject.interactionType)} ready` : 'WASD / arrows to move'}</span>
             <button disabled={!nearbyObject} onClick={handlePlayInteract} type="button">
-              {nearbyObject ? `${nearbyObject.interactionType} [E]` : 'No target nearby'}
+              {nearbyObject ? `${formatInteractionLabel(nearbyObject.interactionType)} [E]` : 'No target nearby'}
             </button>
           </div>
         ) : null}

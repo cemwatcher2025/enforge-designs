@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { RoamInteractionId } from '../data/interactionGrammar'
 
 export type WorldVector = {
   x: number
@@ -6,7 +7,7 @@ export type WorldVector = {
   z: number
 }
 
-export type WorldInteractionType = 'examine' | 'repair' | 'collect' | 'activate'
+export type WorldInteractionType = RoamInteractionId
 
 export type WorldObject = {
   description: string

@@ -39,6 +39,7 @@ Build order:
 - Phase 6 stores dashboard config in the Replit proxy at `data/config.json` for Lindy/browser remote management, with browser `localStorage` fallback.
 - Phase 7 KIM mic/camera processing is browser-local only. ElevenLabs API key is never committed or synced to the proxy; it is stored only in browser localStorage through KIM settings.
 - Phase 8 turns the 3D Sandbox panel into a mode-switched tool: Sandbox mode remains local/freeform, and World mode loads persistent scene state from the Replit proxy.
+- The ROAM Interaction Library PDF has been converted into a portable interaction grammar for the dashboard, ROAM, Unreal Engine, and future projects. Canonical files live in `world-design/`.
 
 ## Active Panels
 
@@ -148,6 +149,7 @@ Phase 8 status:
 - Non-interactive world decor is supported: static props render in the scene without labels, red-dot attention markers, or sidebar clutter.
 - World interactions post to `POST /api/world/interactions` and persist through the proxy.
 - World reset is available in the UI with confirmation.
+- World object `interactionType` now accepts the expanded ROAM interaction grammar instead of only `examine`, `repair`, `collect`, and `activate`.
 - Stage reset shipped: the previous experimental object field has been replaced by Signal Station One, a coherent level with Poly Haven CC0 environment assets, gameplay-critical interactables, and non-interactive atmosphere/decor.
 - Signal Station One has a repeatable builder script at `scripts/build-signal-station-one.mjs`; it resets the proxy world and rebuilds the authored stage from structured world objects.
 - Procedural world primitives are supported through object `properties.primitive` for floor slabs, walls, glow strips, light volumes, and other non-asset set dressing.
@@ -203,6 +205,23 @@ World Engine proxy endpoints:
 | `POST` | `/api/world/reset` | Clear objects/interactions and start a fresh world |
 | `GET` | `/api/world/interactions` | Read interaction history |
 | `POST` | `/api/world/interactions` | Log a user interaction with an object |
+
+World design grammar:
+
+| File | Purpose |
+| --- | --- |
+| `world-design/interaction-library.json` | Canonical structured interaction grammar converted from the ROAM Interaction Library PDF |
+| `world-design/interaction-library.csv` | Flat Unreal/DataTable-friendly export |
+| `world-design/interaction-library.md` | Human-readable design guide and implementation notes |
+| `src/data/interactionGrammar.ts` | Frontend interaction IDs and label formatting helper |
+
+Interaction categories:
+
+- Discovery
+- Repair and Restoration
+- Environment
+- Tool-Based
+- Social and NPC
 
 ## Usage Tracking
 

@@ -1,0 +1,786 @@
+{
+  "id": "roam-interaction-library",
+  "name": "ROAM Interaction Library",
+  "version": "1.0.0",
+  "source": {
+    "file": "ROAM_Interaction_Library.pdf",
+    "notes": "Converted into a portable interaction grammar for Enforge Command Center, ROAM, Unreal Engine, and future projects."
+  },
+  "designIntent": {
+    "summary": "Reusable interaction mechanics for exploration, discovery, repair, restoration, world traversal, tools, and social play.",
+    "principles": [
+      "Interactions should reveal the world instead of merely consuming clicks.",
+      "Feedback should be visible, audible, logged, or reflected in the environment.",
+      "Most useful interactions can chain into a next verb, clue, state, or unlocked space.",
+      "Not every object needs interaction; static decor gives interactive objects context and value.",
+      "Objects should support richer interaction arrays over time, even if v1 uses a single primary interactionType."
+    ]
+  },
+  "categories": [
+    {
+      "id": "discovery",
+      "name": "Discovery Interactions",
+      "description": "Perception and knowledge-gathering verbs that teach the player what a thing is, where it belongs, and what it may unlock."
+    },
+    {
+      "id": "repair_restoration",
+      "name": "Repair and Restoration",
+      "description": "Mechanical, environmental, or civic restoration verbs that turn broken spaces into usable places."
+    },
+    {
+      "id": "environment",
+      "name": "Environmental Interactions",
+      "description": "Direct manipulation of doors, light, water, mechanisms, power, and navigation features."
+    },
+    {
+      "id": "tool_based",
+      "name": "Tool-Based Interactions",
+      "description": "Inventory, crafting, placement, extraction, and construction verbs that let the player change the world with tools."
+    },
+    {
+      "id": "social",
+      "name": "Social and NPC Interactions",
+      "description": "Conversation, teaching, trade, assistance, and shared-knowledge verbs for people, groups, and communities."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "examine",
+      "category": "discovery",
+      "label": "Examine",
+      "playerIntent": "Look closely at an object or clue.",
+      "defaultPrompt": "Examine",
+      "feedback": ["journal_update", "camera_focus", "detail_highlight"],
+      "chainsInto": ["diagnose", "repair", "collect", "investigate"],
+      "gameplayTags": ["interaction.discovery.examine", "feedback.journal", "world.clue"],
+      "unreal": { "interface": "BPI_Interactable", "component": "ROAMInteractionComponent", "event": "OnExamine" }
+    },
+    {
+      "id": "inspect",
+      "category": "discovery",
+      "label": "Inspect",
+      "playerIntent": "Rotate or observe an item for wear, symbols, missing parts, or unusual details.",
+      "defaultPrompt": "Inspect",
+      "feedback": ["object_rotate", "wear_highlight", "symbol_highlight"],
+      "chainsInto": ["decode", "repair", "identify"],
+      "gameplayTags": ["interaction.discovery.inspect", "world.detail", "camera.inspect"],
+      "unreal": { "interface": "BPI_Inspectable", "component": "ROAMInspectionComponent", "event": "OnInspect" }
+    },
+    {
+      "id": "discover",
+      "category": "discovery",
+      "label": "Discover",
+      "playerIntent": "Register a new object, location, concept, or clue.",
+      "defaultPrompt": "Discover",
+      "feedback": ["knowledge_gained", "journal_entry", "map_marker"],
+      "chainsInto": ["research", "collect", "track"],
+      "gameplayTags": ["interaction.discovery.discover", "progression.knowledge", "journal.discovery"],
+      "unreal": { "interface": "BPI_Discoverable", "component": "ROAMDiscoveryComponent", "event": "OnDiscover" }
+    },
+    {
+      "id": "identify",
+      "category": "discovery",
+      "label": "Identify",
+      "playerIntent": "Determine what an object is and why it matters.",
+      "defaultPrompt": "Identify",
+      "feedback": ["name_unlocked", "history_unlocked", "metadata_revealed"],
+      "chainsInto": ["repair", "operate", "catalog"],
+      "gameplayTags": ["interaction.discovery.identify", "knowledge.identity", "journal.catalog"],
+      "unreal": { "interface": "BPI_Discoverable", "component": "ROAMIdentityComponent", "event": "OnIdentify" }
+    },
+    {
+      "id": "catalog",
+      "category": "discovery",
+      "label": "Catalog",
+      "playerIntent": "Record a discovery into a collection, log, index, or field guide.",
+      "defaultPrompt": "Catalog",
+      "feedback": ["collection_progress", "journal_index", "achievement_progress"],
+      "chainsInto": ["achievement", "npc_dialogue", "research"],
+      "gameplayTags": ["interaction.discovery.catalog", "collection.catalog", "journal.index"],
+      "unreal": { "interface": "BPI_Catalogable", "component": "ROAMCatalogComponent", "event": "OnCatalog" }
+    },
+    {
+      "id": "read",
+      "category": "discovery",
+      "label": "Read",
+      "playerIntent": "Read books, signs, notes, logs, terminals, or inscriptions.",
+      "defaultPrompt": "Read",
+      "feedback": ["text_panel", "lore_unlock", "code_revealed", "map_hint"],
+      "chainsInto": ["decode", "unlock", "navigate"],
+      "gameplayTags": ["interaction.discovery.read", "knowledge.lore", "ui.text"],
+      "unreal": { "interface": "BPI_Readable", "component": "ROAMReadableComponent", "event": "OnRead" }
+    },
+    {
+      "id": "listen",
+      "category": "discovery",
+      "label": "Listen",
+      "playerIntent": "Use sound from machinery, wildlife, signal devices, or spaces as a clue.",
+      "defaultPrompt": "Listen",
+      "feedback": ["audio_clue", "directional_hint", "sound_visualizer"],
+      "chainsInto": ["locate", "diagnose", "track"],
+      "gameplayTags": ["interaction.discovery.listen", "audio.clue", "world.signal"],
+      "unreal": { "interface": "BPI_Audible", "component": "ROAMAudioClueComponent", "event": "OnListen" }
+    },
+    {
+      "id": "scan",
+      "category": "discovery",
+      "label": "Scan",
+      "playerIntent": "Analyze hidden energy, wiring, routes, materials, or anomalies with a tool.",
+      "defaultPrompt": "Scan",
+      "feedback": ["scan_overlay", "hidden_path_revealed", "energy_highlight"],
+      "chainsInto": ["repair", "activate", "trace"],
+      "gameplayTags": ["interaction.discovery.scan", "tool.scanner", "overlay.scan"],
+      "unreal": { "interface": "BPI_Scannable", "component": "ROAMScanComponent", "event": "OnScan" }
+    },
+    {
+      "id": "trace",
+      "category": "discovery",
+      "label": "Trace",
+      "playerIntent": "Follow pipes, cables, routes, footprints, or signal paths.",
+      "defaultPrompt": "Trace",
+      "feedback": ["path_highlight", "route_line", "linked_object_ping"],
+      "chainsInto": ["restore", "connect", "discover"],
+      "gameplayTags": ["interaction.discovery.trace", "world.path", "system.linked"],
+      "unreal": { "interface": "BPI_Traceable", "component": "ROAMTraceComponent", "event": "OnTrace" }
+    },
+    {
+      "id": "decode",
+      "category": "discovery",
+      "label": "Decode",
+      "playerIntent": "Interpret symbols, damaged text, old language, ciphers, or control markings.",
+      "defaultPrompt": "Decode",
+      "feedback": ["translation_unlocked", "symbol_rewrite", "control_unlocked"],
+      "chainsInto": ["activate", "unlock"],
+      "gameplayTags": ["interaction.discovery.decode", "knowledge.language", "progression.key"],
+      "unreal": { "interface": "BPI_Decodable", "component": "ROAMDecodeComponent", "event": "OnDecode" }
+    },
+    {
+      "id": "investigate",
+      "category": "discovery",
+      "label": "Investigate",
+      "playerIntent": "Combine local clues into a larger conclusion about a place or event.",
+      "defaultPrompt": "Investigate",
+      "feedback": ["case_note", "clue_thread", "new_objective"],
+      "chainsInto": ["discover", "track", "ask"],
+      "gameplayTags": ["interaction.discovery.investigate", "quest.clue", "journal.thread"],
+      "unreal": { "interface": "BPI_Investigatable", "component": "ROAMInvestigationComponent", "event": "OnInvestigate" }
+    },
+    {
+      "id": "locate",
+      "category": "discovery",
+      "label": "Locate",
+      "playerIntent": "Pinpoint the source or destination of a clue, signal, sound, or trail.",
+      "defaultPrompt": "Locate",
+      "feedback": ["map_marker", "compass_pulse", "route_hint"],
+      "chainsInto": ["navigate", "track", "discover"],
+      "gameplayTags": ["interaction.discovery.locate", "map.marker", "navigation.target"],
+      "unreal": { "interface": "BPI_Locatable", "component": "ROAMLocateComponent", "event": "OnLocate" }
+    },
+    {
+      "id": "research",
+      "category": "discovery",
+      "label": "Research",
+      "playerIntent": "Use a library, database, field guide, or mentor to understand a discovery.",
+      "defaultPrompt": "Research",
+      "feedback": ["knowledge_entry", "new_recipe", "historical_context"],
+      "chainsInto": ["identify", "craft", "teach"],
+      "gameplayTags": ["interaction.discovery.research", "knowledge.research", "journal.reference"],
+      "unreal": { "interface": "BPI_Researchable", "component": "ROAMResearchComponent", "event": "OnResearch" }
+    },
+    {
+      "id": "track",
+      "category": "discovery",
+      "label": "Track",
+      "playerIntent": "Follow signs of movement, use, damage, or signal drift over distance.",
+      "defaultPrompt": "Track",
+      "feedback": ["trail_highlight", "staged_clues", "distance_indicator"],
+      "chainsInto": ["locate", "discover", "investigate"],
+      "gameplayTags": ["interaction.discovery.track", "navigation.trail", "world.clue"],
+      "unreal": { "interface": "BPI_Trackable", "component": "ROAMTrackComponent", "event": "OnTrack" }
+    },
+    {
+      "id": "diagnose",
+      "category": "repair_restoration",
+      "label": "Diagnose",
+      "playerIntent": "Find what is broken, blocked, missing, or misaligned.",
+      "defaultPrompt": "Diagnose",
+      "feedback": ["fault_highlight", "missing_parts", "repair_steps"],
+      "chainsInto": ["gather", "repair"],
+      "gameplayTags": ["interaction.repair.diagnose", "state.broken", "repair.fault"],
+      "unreal": { "interface": "BPI_Repairable", "component": "ROAMRepairComponent", "event": "OnDiagnose" }
+    },
+    {
+      "id": "repair",
+      "category": "repair_restoration",
+      "label": "Repair",
+      "playerIntent": "Replace, align, clean, or reconnect components to make a thing work again.",
+      "defaultPrompt": "Repair",
+      "feedback": ["repair_animation", "sparks_or_light", "state_restored"],
+      "chainsInto": ["activate", "upgrade"],
+      "gameplayTags": ["interaction.repair.repair", "state.restored", "progression.restoration"],
+      "unreal": { "interface": "BPI_Repairable", "component": "ROAMRepairComponent", "event": "OnRepair" }
+    },
+    {
+      "id": "restore",
+      "category": "repair_restoration",
+      "label": "Restore",
+      "playerIntent": "Return a structure, system, route, or community feature to service.",
+      "defaultPrompt": "Restore",
+      "feedback": ["visible_restoration", "area_lights_on", "npc_use"],
+      "chainsInto": ["explore", "npc_use"],
+      "gameplayTags": ["interaction.repair.restore", "world.restored", "area.changed"],
+      "unreal": { "interface": "BPI_Restorable", "component": "ROAMRestorationComponent", "event": "OnRestore" }
+    },
+    {
+      "id": "rebuild",
+      "category": "repair_restoration",
+      "label": "Rebuild",
+      "playerIntent": "Construct or reconstruct destroyed sections of the world.",
+      "defaultPrompt": "Rebuild",
+      "feedback": ["construction_progress", "new_traversal", "assembled_structure"],
+      "chainsInto": ["traverse", "access"],
+      "gameplayTags": ["interaction.repair.rebuild", "build.structure", "navigation.access"],
+      "unreal": { "interface": "BPI_Buildable", "component": "ROAMBuildComponent", "event": "OnRebuild" }
+    },
+    {
+      "id": "replace_component",
+      "category": "repair_restoration",
+      "label": "Replace Component",
+      "playerIntent": "Install a gear, fuse, lens, battery, handle, belt, or other needed part.",
+      "defaultPrompt": "Replace Component",
+      "feedback": ["part_snap", "component_checkmark", "mechanism_ready"],
+      "chainsInto": ["test", "operate"],
+      "gameplayTags": ["interaction.repair.replace_component", "inventory.part", "mechanism.component"],
+      "unreal": { "interface": "BPI_ComponentSlot", "component": "ROAMComponentSlot", "event": "OnReplaceComponent" }
+    },
+    {
+      "id": "clean",
+      "category": "repair_restoration",
+      "label": "Clean",
+      "playerIntent": "Remove rust, debris, grime, growth, or blockage.",
+      "defaultPrompt": "Clean",
+      "feedback": ["renewed_material", "obstruction_removed", "detail_revealed"],
+      "chainsInto": ["inspect", "repair"],
+      "gameplayTags": ["interaction.repair.clean", "state.cleaned", "world.revealed"],
+      "unreal": { "interface": "BPI_Cleanable", "component": "ROAMCleanComponent", "event": "OnClean" }
+    },
+    {
+      "id": "lubricate",
+      "category": "repair_restoration",
+      "label": "Lubricate",
+      "playerIntent": "Reduce friction or restore movement in a stuck mechanism.",
+      "defaultPrompt": "Lubricate",
+      "feedback": ["smooth_motion", "creak_reduced", "mechanism_ready"],
+      "chainsInto": ["activate"],
+      "gameplayTags": ["interaction.repair.lubricate", "mechanism.movement", "tool.oil"],
+      "unreal": { "interface": "BPI_Mechanism", "component": "ROAMLubricationComponent", "event": "OnLubricate" }
+    },
+    {
+      "id": "reconnect",
+      "category": "repair_restoration",
+      "label": "Reconnect",
+      "playerIntent": "Reconnect power, water, signal, structural, or social systems.",
+      "defaultPrompt": "Reconnect",
+      "feedback": ["connection_glow", "flow_restored", "linked_system_online"],
+      "chainsInto": ["restore", "activate"],
+      "gameplayTags": ["interaction.repair.reconnect", "system.connection", "world.flow"],
+      "unreal": { "interface": "BPI_Connectable", "component": "ROAMConnectionComponent", "event": "OnReconnect" }
+    },
+    {
+      "id": "calibrate",
+      "category": "repair_restoration",
+      "label": "Calibrate",
+      "playerIntent": "Fine tune equipment, instruments, sensors, or alignment.",
+      "defaultPrompt": "Calibrate",
+      "feedback": ["precision_indicator", "needle_centered", "signal_clarity"],
+      "chainsInto": ["scan", "observe"],
+      "gameplayTags": ["interaction.repair.calibrate", "mechanism.precision", "tool.instrument"],
+      "unreal": { "interface": "BPI_Calibratable", "component": "ROAMCalibrationComponent", "event": "OnCalibrate" }
+    },
+    {
+      "id": "upgrade",
+      "category": "repair_restoration",
+      "label": "Upgrade",
+      "playerIntent": "Install better parts or unlock advanced behavior.",
+      "defaultPrompt": "Upgrade",
+      "feedback": ["improved_performance", "new_function", "visual_enhancement"],
+      "chainsInto": ["advanced_function", "explore"],
+      "gameplayTags": ["interaction.repair.upgrade", "progression.upgrade", "system.advanced"],
+      "unreal": { "interface": "BPI_Upgradeable", "component": "ROAMUpgradeComponent", "event": "OnUpgrade" }
+    },
+    {
+      "id": "test",
+      "category": "repair_restoration",
+      "label": "Test",
+      "playerIntent": "Verify whether a restored or replaced system works.",
+      "defaultPrompt": "Test",
+      "feedback": ["success_tone", "failure_feedback", "diagnostic_readout"],
+      "chainsInto": ["operate", "diagnose"],
+      "gameplayTags": ["interaction.repair.test", "system.diagnostic", "state.verified"],
+      "unreal": { "interface": "BPI_Testable", "component": "ROAMDiagnosticComponent", "event": "OnTest" }
+    },
+    {
+      "id": "activate",
+      "category": "environment",
+      "label": "Activate",
+      "playerIntent": "Turn on a system, device, machine, beacon, or mechanism.",
+      "defaultPrompt": "Activate",
+      "feedback": ["power_on", "light_on", "mechanism_motion"],
+      "chainsInto": ["observe", "open", "restore"],
+      "gameplayTags": ["interaction.environment.activate", "state.active", "system.power"],
+      "unreal": { "interface": "BPI_Interactable", "component": "ROAMActivationComponent", "event": "OnActivate" }
+    },
+    {
+      "id": "deactivate",
+      "category": "environment",
+      "label": "Deactivate",
+      "playerIntent": "Turn off a system, device, machine, hazard, or signal.",
+      "defaultPrompt": "Deactivate",
+      "feedback": ["power_down", "light_off", "hazard_stops"],
+      "chainsInto": ["open", "repair", "redirect"],
+      "gameplayTags": ["interaction.environment.deactivate", "state.inactive", "system.power"],
+      "unreal": { "interface": "BPI_Interactable", "component": "ROAMActivationComponent", "event": "OnDeactivate" }
+    },
+    {
+      "id": "open",
+      "category": "environment",
+      "label": "Open",
+      "playerIntent": "Open a door, hatch, container, gate, path, or interface.",
+      "defaultPrompt": "Open",
+      "feedback": ["opening_motion", "access_revealed", "audio_creak"],
+      "chainsInto": ["explore", "collect", "enter"],
+      "gameplayTags": ["interaction.environment.open", "navigation.access", "state.open"],
+      "unreal": { "interface": "BPI_Openable", "component": "ROAMOpenableComponent", "event": "OnOpen" }
+    },
+    {
+      "id": "close",
+      "category": "environment",
+      "label": "Close",
+      "playerIntent": "Close a door, hatch, container, path, or interface.",
+      "defaultPrompt": "Close",
+      "feedback": ["closing_motion", "state_closed", "audio_latch"],
+      "chainsInto": ["lock", "redirect", "protect"],
+      "gameplayTags": ["interaction.environment.close", "state.closed", "navigation.blocked"],
+      "unreal": { "interface": "BPI_Openable", "component": "ROAMOpenableComponent", "event": "OnClose" }
+    },
+    {
+      "id": "unlock",
+      "category": "environment",
+      "label": "Unlock",
+      "playerIntent": "Use knowledge, item, tool, code, or restored power to remove a lock.",
+      "defaultPrompt": "Unlock",
+      "feedback": ["lock_release", "access_ready", "key_consumed_or_checked"],
+      "chainsInto": ["open", "activate"],
+      "gameplayTags": ["interaction.environment.unlock", "progression.lock", "navigation.access"],
+      "unreal": { "interface": "BPI_Lockable", "component": "ROAMLockComponent", "event": "OnUnlock" }
+    },
+    {
+      "id": "rotate",
+      "category": "environment",
+      "label": "Rotate",
+      "playerIntent": "Turn a wheel, dial, valve, object, mirror, or mechanism.",
+      "defaultPrompt": "Rotate",
+      "feedback": ["rotation_motion", "alignment_feedback", "mechanism_shift"],
+      "chainsInto": ["align", "redirect", "activate"],
+      "gameplayTags": ["interaction.environment.rotate", "mechanism.rotation", "puzzle.align"],
+      "unreal": { "interface": "BPI_Rotatable", "component": "ROAMRotatableComponent", "event": "OnRotate" }
+    },
+    {
+      "id": "raise_lower",
+      "category": "environment",
+      "label": "Raise / Lower",
+      "playerIntent": "Move platforms, gates, bridges, lifts, water levels, or suspended objects vertically.",
+      "defaultPrompt": "Raise / Lower",
+      "feedback": ["vertical_motion", "new_path", "height_indicator"],
+      "chainsInto": ["traverse", "access"],
+      "gameplayTags": ["interaction.environment.raise_lower", "mechanism.vertical", "navigation.height"],
+      "unreal": { "interface": "BPI_Movable", "component": "ROAMMoverComponent", "event": "OnRaiseLower" }
+    },
+    {
+      "id": "redirect",
+      "category": "environment",
+      "label": "Redirect",
+      "playerIntent": "Change the flow of light, water, power, air, signal, or attention.",
+      "defaultPrompt": "Redirect",
+      "feedback": ["flow_path_changed", "new_link", "target_receives_signal"],
+      "chainsInto": ["restore", "activate", "illuminate"],
+      "gameplayTags": ["interaction.environment.redirect", "system.flow", "puzzle.routing"],
+      "unreal": { "interface": "BPI_Redirectable", "component": "ROAMRedirectComponent", "event": "OnRedirect" }
+    },
+    {
+      "id": "drain",
+      "category": "environment",
+      "label": "Drain",
+      "playerIntent": "Remove water, pressure, charge, sludge, or stored material.",
+      "defaultPrompt": "Drain",
+      "feedback": ["level_drops", "path_revealed", "pressure_released"],
+      "chainsInto": ["enter", "repair", "collect"],
+      "gameplayTags": ["interaction.environment.drain", "system.fluid", "navigation.revealed"],
+      "unreal": { "interface": "BPI_Fillable", "component": "ROAMFluidComponent", "event": "OnDrain" }
+    },
+    {
+      "id": "fill",
+      "category": "environment",
+      "label": "Fill",
+      "playerIntent": "Add water, fuel, air, light, power, or material to a system.",
+      "defaultPrompt": "Fill",
+      "feedback": ["level_rises", "meter_fills", "system_ready"],
+      "chainsInto": ["activate", "restore", "operate"],
+      "gameplayTags": ["interaction.environment.fill", "system.fluid", "resource.input"],
+      "unreal": { "interface": "BPI_Fillable", "component": "ROAMFluidComponent", "event": "OnFill" }
+    },
+    {
+      "id": "illuminate",
+      "category": "environment",
+      "label": "Illuminate",
+      "playerIntent": "Light an area, object, symbol, route, or hidden surface.",
+      "defaultPrompt": "Illuminate",
+      "feedback": ["light_reveal", "shadow_detail", "safe_area"],
+      "chainsInto": ["observe", "discover", "decode"],
+      "gameplayTags": ["interaction.environment.illuminate", "light.reveal", "world.visibility"],
+      "unreal": { "interface": "BPI_Illuminable", "component": "ROAMLightRevealComponent", "event": "OnIlluminate" }
+    },
+    {
+      "id": "observe",
+      "category": "environment",
+      "label": "Observe",
+      "playerIntent": "Watch a system, pattern, event, creature, person, or space over time.",
+      "defaultPrompt": "Observe",
+      "feedback": ["timed_pattern", "camera_hold", "insight_unlocked"],
+      "chainsInto": ["identify", "diagnose", "record"],
+      "gameplayTags": ["interaction.environment.observe", "time.pattern", "world.awareness"],
+      "unreal": { "interface": "BPI_Observable", "component": "ROAMObservationComponent", "event": "OnObserve" }
+    },
+    {
+      "id": "operate",
+      "category": "environment",
+      "label": "Operate",
+      "playerIntent": "Use a working machine, console, vehicle, or station.",
+      "defaultPrompt": "Operate",
+      "feedback": ["machine_response", "control_panel", "world_state_change"],
+      "chainsInto": ["activate", "redirect", "restore"],
+      "gameplayTags": ["interaction.environment.operate", "machine.control", "system.usable"],
+      "unreal": { "interface": "BPI_Operable", "component": "ROAMOperableComponent", "event": "OnOperate" }
+    },
+    {
+      "id": "navigate",
+      "category": "environment",
+      "label": "Navigate",
+      "playerIntent": "Move toward a marked route, destination, or newly understood path.",
+      "defaultPrompt": "Navigate",
+      "feedback": ["route_marker", "map_update", "camera_hint"],
+      "chainsInto": ["discover", "enter", "explore"],
+      "gameplayTags": ["interaction.environment.navigate", "navigation.route", "map.path"],
+      "unreal": { "interface": "BPI_Navigable", "component": "ROAMNavigationComponent", "event": "OnNavigate" }
+    },
+    {
+      "id": "collect",
+      "category": "tool_based",
+      "label": "Collect",
+      "playerIntent": "Pick up an item, sample, tool, part, note, resource, or memory object.",
+      "defaultPrompt": "Collect",
+      "feedback": ["inventory_add", "object_removed_or_marked", "collection_update"],
+      "chainsInto": ["combine", "craft", "catalog"],
+      "gameplayTags": ["interaction.tool.collect", "inventory.item", "collection.pickup"],
+      "unreal": { "interface": "BPI_Collectable", "component": "ROAMCollectableComponent", "event": "OnCollect" }
+    },
+    {
+      "id": "harvest",
+      "category": "tool_based",
+      "label": "Harvest",
+      "playerIntent": "Gather renewable resources from plants, systems, or restored areas.",
+      "defaultPrompt": "Harvest",
+      "feedback": ["resource_gain", "node_cooldown", "world_response"],
+      "chainsInto": ["craft", "trade", "plant"],
+      "gameplayTags": ["interaction.tool.harvest", "resource.renewable", "inventory.resource"],
+      "unreal": { "interface": "BPI_Harvestable", "component": "ROAMHarvestComponent", "event": "OnHarvest" }
+    },
+    {
+      "id": "mine",
+      "category": "tool_based",
+      "label": "Mine",
+      "playerIntent": "Extract stone, ore, salvage, or dense material.",
+      "defaultPrompt": "Mine",
+      "feedback": ["impact_feedback", "resource_drop", "node_depleted"],
+      "chainsInto": ["craft", "build", "trade"],
+      "gameplayTags": ["interaction.tool.mine", "resource.raw", "tool.extract"],
+      "unreal": { "interface": "BPI_Mineable", "component": "ROAMExtractionComponent", "event": "OnMine" }
+    },
+    {
+      "id": "cut",
+      "category": "tool_based",
+      "label": "Cut",
+      "playerIntent": "Cut ropes, vines, fabric, cable, wood, or obstruction.",
+      "defaultPrompt": "Cut",
+      "feedback": ["cut_motion", "obstacle_removed", "material_obtained"],
+      "chainsInto": ["access", "collect", "repair"],
+      "gameplayTags": ["interaction.tool.cut", "tool.blade", "state.removed"],
+      "unreal": { "interface": "BPI_Cuttable", "component": "ROAMCutComponent", "event": "OnCut" }
+    },
+    {
+      "id": "dig",
+      "category": "tool_based",
+      "label": "Dig",
+      "playerIntent": "Uncover buried items, routes, foundations, or hidden layers.",
+      "defaultPrompt": "Dig",
+      "feedback": ["soil_displaced", "object_revealed", "terrain_mark"],
+      "chainsInto": ["discover", "collect", "plant"],
+      "gameplayTags": ["interaction.tool.dig", "terrain.modify", "world.hidden"],
+      "unreal": { "interface": "BPI_Diggable", "component": "ROAMDigComponent", "event": "OnDig" }
+    },
+    {
+      "id": "pry",
+      "category": "tool_based",
+      "label": "Pry",
+      "playerIntent": "Force open stuck containers, panels, boards, or machinery without destroying them.",
+      "defaultPrompt": "Pry",
+      "feedback": ["lever_motion", "gap_opens", "resistance_audio"],
+      "chainsInto": ["open", "repair", "collect"],
+      "gameplayTags": ["interaction.tool.pry", "tool.lever", "access.force"],
+      "unreal": { "interface": "BPI_Pryable", "component": "ROAMPryComponent", "event": "OnPry" }
+    },
+    {
+      "id": "lift",
+      "category": "tool_based",
+      "label": "Lift",
+      "playerIntent": "Raise or move heavy objects, debris, lids, panels, or supplies.",
+      "defaultPrompt": "Lift",
+      "feedback": ["weight_feedback", "object_moved", "path_cleared"],
+      "chainsInto": ["carry", "place", "access"],
+      "gameplayTags": ["interaction.tool.lift", "physics.weight", "object.movable"],
+      "unreal": { "interface": "BPI_Liftable", "component": "ROAMLiftComponent", "event": "OnLift" }
+    },
+    {
+      "id": "carry",
+      "category": "tool_based",
+      "label": "Carry",
+      "playerIntent": "Transport an item, part, tool, package, or person from one place to another.",
+      "defaultPrompt": "Carry",
+      "feedback": ["held_object", "movement_weight", "destination_hint"],
+      "chainsInto": ["place", "deliver", "repair"],
+      "gameplayTags": ["interaction.tool.carry", "inventory.held", "quest.delivery"],
+      "unreal": { "interface": "BPI_Carryable", "component": "ROAMCarryComponent", "event": "OnCarry" }
+    },
+    {
+      "id": "place",
+      "category": "tool_based",
+      "label": "Place",
+      "playerIntent": "Put an object in a world slot, workspace, altar, machine, or construction site.",
+      "defaultPrompt": "Place",
+      "feedback": ["snap_to_slot", "placement_preview", "system_updated"],
+      "chainsInto": ["activate", "combine", "build"],
+      "gameplayTags": ["interaction.tool.place", "inventory.slot", "world.placement"],
+      "unreal": { "interface": "BPI_Placeable", "component": "ROAMPlacementComponent", "event": "OnPlace" }
+    },
+    {
+      "id": "combine",
+      "category": "tool_based",
+      "label": "Combine",
+      "playerIntent": "Join two or more items into a useful part, clue, or crafted object.",
+      "defaultPrompt": "Combine",
+      "feedback": ["recipe_result", "items_merged", "new_object"],
+      "chainsInto": ["craft", "repair", "unlock"],
+      "gameplayTags": ["interaction.tool.combine", "inventory.recipe", "crafting.merge"],
+      "unreal": { "interface": "BPI_Combinable", "component": "ROAMCombineComponent", "event": "OnCombine" }
+    },
+    {
+      "id": "craft",
+      "category": "tool_based",
+      "label": "Craft",
+      "playerIntent": "Create tools, parts, supplies, structures, or upgrades from known recipes.",
+      "defaultPrompt": "Craft",
+      "feedback": ["crafting_progress", "new_item", "recipe_confirmed"],
+      "chainsInto": ["repair", "build", "upgrade"],
+      "gameplayTags": ["interaction.tool.craft", "crafting.recipe", "inventory.output"],
+      "unreal": { "interface": "BPI_CraftingStation", "component": "ROAMCraftingComponent", "event": "OnCraft" }
+    },
+    {
+      "id": "plant",
+      "category": "tool_based",
+      "label": "Plant",
+      "playerIntent": "Place seeds, starts, markers, poles, anchors, or signal devices into the ground.",
+      "defaultPrompt": "Plant",
+      "feedback": ["growth_marker", "ground_change", "future_resource"],
+      "chainsInto": ["harvest", "restore", "observe"],
+      "gameplayTags": ["interaction.tool.plant", "world.growth", "resource.future"],
+      "unreal": { "interface": "BPI_Plantable", "component": "ROAMPlantComponent", "event": "OnPlant" }
+    },
+    {
+      "id": "build",
+      "category": "tool_based",
+      "label": "Build",
+      "playerIntent": "Assemble structures, stations, bridges, devices, or community spaces.",
+      "defaultPrompt": "Build",
+      "feedback": ["construction_preview", "assembled_stage", "new_function"],
+      "chainsInto": ["restore", "operate", "collaborate"],
+      "gameplayTags": ["interaction.tool.build", "build.structure", "world.constructed"],
+      "unreal": { "interface": "BPI_Buildable", "component": "ROAMBuildComponent", "event": "OnBuild" }
+    },
+    {
+      "id": "talk",
+      "category": "social",
+      "label": "Talk",
+      "playerIntent": "Speak with a person, assistant, companion, or group.",
+      "defaultPrompt": "Talk",
+      "feedback": ["dialogue_open", "relationship_update", "new_topic"],
+      "chainsInto": ["ask", "teach", "trade"],
+      "gameplayTags": ["interaction.social.talk", "npc.dialogue", "relationship"],
+      "unreal": { "interface": "BPI_Talkable", "component": "ROAMDialogueComponent", "event": "OnTalk" }
+    },
+    {
+      "id": "ask",
+      "category": "social",
+      "label": "Ask",
+      "playerIntent": "Ask a person, assistant, or system for knowledge, directions, or help.",
+      "defaultPrompt": "Ask",
+      "feedback": ["answer_received", "topic_unlocked", "map_hint"],
+      "chainsInto": ["learn", "locate", "assist"],
+      "gameplayTags": ["interaction.social.ask", "npc.question", "knowledge.request"],
+      "unreal": { "interface": "BPI_Talkable", "component": "ROAMDialogueComponent", "event": "OnAsk" }
+    },
+    {
+      "id": "teach",
+      "category": "social",
+      "label": "Teach",
+      "playerIntent": "Share discovered knowledge with a person or group.",
+      "defaultPrompt": "Teach",
+      "feedback": ["knowledge_shared", "npc_capability_unlocked", "relationship_gain"],
+      "chainsInto": ["collaborate", "assist", "celebrate"],
+      "gameplayTags": ["interaction.social.teach", "knowledge.share", "community.growth"],
+      "unreal": { "interface": "BPI_Teachable", "component": "ROAMTeachingComponent", "event": "OnTeach" }
+    },
+    {
+      "id": "learn",
+      "category": "social",
+      "label": "Learn",
+      "playerIntent": "Receive knowledge, recipes, techniques, history, or social context.",
+      "defaultPrompt": "Learn",
+      "feedback": ["knowledge_unlocked", "recipe_added", "skill_note"],
+      "chainsInto": ["craft", "repair", "interpret"],
+      "gameplayTags": ["interaction.social.learn", "knowledge.receive", "skill.unlock"],
+      "unreal": { "interface": "BPI_Teachable", "component": "ROAMTeachingComponent", "event": "OnLearn" }
+    },
+    {
+      "id": "trade",
+      "category": "social",
+      "label": "Trade",
+      "playerIntent": "Exchange items, materials, services, or knowledge.",
+      "defaultPrompt": "Trade",
+      "feedback": ["trade_panel", "inventory_delta", "relationship_note"],
+      "chainsInto": ["craft", "deliver", "assist"],
+      "gameplayTags": ["interaction.social.trade", "economy.trade", "inventory.exchange"],
+      "unreal": { "interface": "BPI_Trader", "component": "ROAMTradeComponent", "event": "OnTrade" }
+    },
+    {
+      "id": "deliver",
+      "category": "social",
+      "label": "Deliver",
+      "playerIntent": "Bring an item, message, tool, or repaired part to someone or somewhere.",
+      "defaultPrompt": "Deliver",
+      "feedback": ["quest_progress", "item_handed_off", "gratitude_response"],
+      "chainsInto": ["assist", "talk", "celebrate"],
+      "gameplayTags": ["interaction.social.deliver", "quest.delivery", "npc.need"],
+      "unreal": { "interface": "BPI_DeliveryTarget", "component": "ROAMDeliveryComponent", "event": "OnDeliver" }
+    },
+    {
+      "id": "assist",
+      "category": "social",
+      "label": "Assist",
+      "playerIntent": "Help a person, group, or community complete a task.",
+      "defaultPrompt": "Assist",
+      "feedback": ["task_progress", "npc_animation", "relationship_gain"],
+      "chainsInto": ["recruit", "collaborate", "restore"],
+      "gameplayTags": ["interaction.social.assist", "community.help", "quest.support"],
+      "unreal": { "interface": "BPI_Assistable", "component": "ROAMAssistComponent", "event": "OnAssist" }
+    },
+    {
+      "id": "recruit",
+      "category": "social",
+      "label": "Recruit",
+      "playerIntent": "Invite a person or group to join a project, route, settlement, or task.",
+      "defaultPrompt": "Recruit",
+      "feedback": ["companion_added", "crew_updated", "new_capability"],
+      "chainsInto": ["collaborate", "build", "restore"],
+      "gameplayTags": ["interaction.social.recruit", "community.member", "crew"],
+      "unreal": { "interface": "BPI_Recruitable", "component": "ROAMRecruitComponent", "event": "OnRecruit" }
+    },
+    {
+      "id": "collaborate",
+      "category": "social",
+      "label": "Collaborate",
+      "playerIntent": "Work with others on repairs, construction, discovery, or restoration.",
+      "defaultPrompt": "Collaborate",
+      "feedback": ["joint_action", "multi_actor_progress", "community_result"],
+      "chainsInto": ["build", "restore", "celebrate"],
+      "gameplayTags": ["interaction.social.collaborate", "community.project", "multi_actor"],
+      "unreal": { "interface": "BPI_Collaborative", "component": "ROAMCollaborationComponent", "event": "OnCollaborate" }
+    },
+    {
+      "id": "share_knowledge",
+      "category": "social",
+      "label": "Share Knowledge",
+      "playerIntent": "Pass discoveries, maps, warnings, recipes, or histories to others.",
+      "defaultPrompt": "Share Knowledge",
+      "feedback": ["knowledge_spread", "npc_state_update", "new_dialogue"],
+      "chainsInto": ["teach", "assist", "collaborate"],
+      "gameplayTags": ["interaction.social.share_knowledge", "knowledge.share", "npc.update"],
+      "unreal": { "interface": "BPI_KnowledgeTarget", "component": "ROAMKnowledgeComponent", "event": "OnShareKnowledge" }
+    },
+    {
+      "id": "interpret",
+      "category": "social",
+      "label": "Interpret",
+      "playerIntent": "Help translate symbols, events, behavior, old systems, or cultural context.",
+      "defaultPrompt": "Interpret",
+      "feedback": ["meaning_revealed", "dialogue_context", "quest_clarity"],
+      "chainsInto": ["decode", "teach", "learn"],
+      "gameplayTags": ["interaction.social.interpret", "knowledge.meaning", "dialogue.context"],
+      "unreal": { "interface": "BPI_Interpreter", "component": "ROAMInterpretComponent", "event": "OnInterpret" }
+    },
+    {
+      "id": "encourage",
+      "category": "social",
+      "label": "Encourage",
+      "playerIntent": "Support a person or group emotionally so they can continue.",
+      "defaultPrompt": "Encourage",
+      "feedback": ["morale_gain", "npc_confidence", "community_state"],
+      "chainsInto": ["assist", "collaborate", "celebrate"],
+      "gameplayTags": ["interaction.social.encourage", "community.morale", "relationship.support"],
+      "unreal": { "interface": "BPI_Encouragable", "component": "ROAMMoraleComponent", "event": "OnEncourage" }
+    },
+    {
+      "id": "celebrate",
+      "category": "social",
+      "label": "Celebrate",
+      "playerIntent": "Mark completion, restoration, reunion, or collective progress.",
+      "defaultPrompt": "Celebrate",
+      "feedback": ["completion_moment", "npc_response", "area_livelier"],
+      "chainsInto": ["new_phase", "community_growth"],
+      "gameplayTags": ["interaction.social.celebrate", "quest.complete", "community.ritual"],
+      "unreal": { "interface": "BPI_Celebratable", "component": "ROAMCelebrationComponent", "event": "OnCelebrate" }
+    }
+  ],
+  "stateModel": {
+    "recommendedObjectFields": {
+      "id": "string",
+      "name": "string",
+      "description": "string",
+      "interactable": "boolean",
+      "interactionType": "string, legacy primary interaction id",
+      "interactions": "array of interaction ids or interaction definitions",
+      "state": "locked | available | completed | disabled | hidden",
+      "requirements": "array of item ids, knowledge ids, interaction ids, or world-state flags",
+      "unlocks": "array of object ids, routes, facts, recipes, or world-state flags",
+      "journalEntry": "optional text to add after interaction",
+      "tags": "array of gameplay tags"
+    },
+    "recommendedLogFields": {
+      "timestamp": "ISO-8601 string",
+      "objectId": "string",
+      "type": "interaction id",
+      "duration": "number in seconds",
+      "result": "success | failed | partial | observed",
+      "worldVersion": "number"
+    }
+  }
+}

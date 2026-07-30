@@ -107,6 +107,74 @@ const defaultWorldState = {
   worldVersion: 1,
 }
 
+const worldInteractionTypes = new Set([
+  'examine',
+  'inspect',
+  'discover',
+  'identify',
+  'catalog',
+  'read',
+  'listen',
+  'scan',
+  'trace',
+  'decode',
+  'investigate',
+  'locate',
+  'research',
+  'track',
+  'diagnose',
+  'repair',
+  'restore',
+  'rebuild',
+  'replace_component',
+  'clean',
+  'lubricate',
+  'reconnect',
+  'calibrate',
+  'upgrade',
+  'test',
+  'activate',
+  'deactivate',
+  'open',
+  'close',
+  'unlock',
+  'rotate',
+  'raise_lower',
+  'redirect',
+  'drain',
+  'fill',
+  'illuminate',
+  'observe',
+  'operate',
+  'navigate',
+  'collect',
+  'harvest',
+  'mine',
+  'cut',
+  'dig',
+  'pry',
+  'lift',
+  'carry',
+  'place',
+  'combine',
+  'craft',
+  'plant',
+  'build',
+  'talk',
+  'ask',
+  'teach',
+  'learn',
+  'trade',
+  'deliver',
+  'assist',
+  'recruit',
+  'collaborate',
+  'share_knowledge',
+  'interpret',
+  'encourage',
+  'celebrate',
+])
+
 const upstreams = {
   clearbid: {
     baseUrl: process.env.CLEARBID_API_BASE || 'https://price-library.replit.app',
@@ -180,7 +248,7 @@ function vectorFrom(value, fallback) {
 function normalizeWorldObject(object, fallbackId = '') {
   const source = asObject(object)
   const id = String(source.id || fallbackId || `world-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
-  const interactionType = ['examine', 'repair', 'collect', 'activate'].includes(source.interactionType)
+  const interactionType = worldInteractionTypes.has(source.interactionType)
     ? source.interactionType
     : 'examine'
 

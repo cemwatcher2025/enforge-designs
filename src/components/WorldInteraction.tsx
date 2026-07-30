@@ -1,13 +1,10 @@
 import type { WorldInteractionLog, WorldObject } from '../hooks/useWorld'
+import { formatInteractionLabel } from '../data/interactionGrammar'
 
 type WorldInteractionProps = {
   interactions: WorldInteractionLog[]
   selectedObject: WorldObject | null
   onInteract: (object: WorldObject) => void
-}
-
-function actionLabel(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function timeLabel(value: string) {
@@ -32,11 +29,11 @@ export function WorldInteraction({ interactions, selectedObject, onInteract }: W
               </div>
               <div>
                 <dt>Interaction</dt>
-                <dd>{selectedObject.interactable ? actionLabel(selectedObject.interactionType) : 'Static'}</dd>
+                <dd>{selectedObject.interactable ? formatInteractionLabel(selectedObject.interactionType) : 'Static'}</dd>
               </div>
             </dl>
             <button disabled={!selectedObject.interactable} onClick={() => onInteract(selectedObject)} type="button">
-              {actionLabel(selectedObject.interactionType)}
+              {formatInteractionLabel(selectedObject.interactionType)}
             </button>
           </>
         ) : (
@@ -51,7 +48,7 @@ export function WorldInteraction({ interactions, selectedObject, onInteract }: W
             <p>No interactions logged yet.</p>
           ) : interactions.slice(-8).reverse().map((interaction, index) => (
             <div key={`${interaction.timestamp}-${interaction.objectId}-${index}`}>
-              <span>{actionLabel(interaction.type)}</span>
+              <span>{formatInteractionLabel(interaction.type)}</span>
               <em>{interaction.objectId} · {timeLabel(interaction.timestamp)}</em>
             </div>
           ))}
