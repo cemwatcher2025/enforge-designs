@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCamera } from '../context/cameraContext'
+import { assessWithMoondream, defaultMoondreamModelId, hasBrowserMoondreamSupport, loadMoondream, type MoondreamStatus } from '../utils/moondreamVision'
+
+type VisionMode = 'moondream' | 'proxy' | 'stats'
 
 type VisionAssessment = {
   brightness: number
@@ -9,6 +12,8 @@ type VisionAssessment = {
 }
 
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
+const visionModeStorageKey = 'enforge-kim-vision-mode'
+const modelStorageKey = 'enforge-kim-vision-model'
 const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
   || (import.meta.env.VITE_COMMAND_CENTER_PROXY_URL
     ? `${String(import.meta.env.VITE_COMMAND_CENTER_PROXY_URL).replace(/\/$/, '')}/api/kim/vision`
@@ -41,6 +46,8 @@ function localNote(brightness: number, motion: number | null) {
   return `Local frame read: ${light} lighting, ${movement}.`
 }
 
+const assessmentPrompt = 'Assess this dashboard camera snapshot briefly. Focus on posture, presence, workspace state, lighting, and whether Brandon appears actively working. Do not identify private text on screen.'
+
 async function postVisionAssessment(endpoint: string, imageDataUrl: string, metadata: Record<string, unknown>) {
   const response = await fetch(endpoint, {
     body: JSON.stringify({
@@ -63,14 +70,25 @@ export function KimVisionPanel() {
   const frameCountRef = useRef(0)
   const [enabled, setEnabled] = useState(false)
   const [frameInterval, setFrameInterval] = useState(1000)
+  const [visionMode, setVisionMode] = useState<VisionMode>(() => {
+    const saved = window.localStorage.getItem(visionModeStorageKey)
+    return saved === 'proxy' || saved === 'stats' || saved === 'moondream' ? saved : 'moondream'
+  })
+  const [modelId, setModelId] = useState(() => window.localStorage.getItem(modelStorageKey) || defaultMoondreamModelId)
   const [endpoint, setEndpoint] = useState(() => window.localStorage.getItem(endpointStorageKey) || defaultVisionEndpoint)
   const [isSending, setIsSending] = useState(false)
   const [status, setStatus] = useState('Waiting for camera.')
+  const [modelStatus, setModelStatus] = useState<MoondreamStatus>({
+    detail: hasBrowserMoondreamSupport()
+      ? 'Local Moondream is available. First analysis downloads the model from Hugging Face.'
+      : 'Local Moondream needs WebGPU. Proxy and stats modes still work.',
+    stage: hasBrowserMoondreamSupport() ? 'idle' : 'error',
+  })
   const [assessments, setAssessments] = useState<VisionAssessment[]>([])
   const effectiveStatus = !isActive
     ? 'Waiting for camera.'
     : enabled
-      ? `KIM is sampling every ${frameInterval.toLocaleString()} frames.`
+      ? `KIM is sampling every ${frameInterval.toLocaleString()} frames in ${visionMode === 'moondream' ? 'local Moondream' : visionMode} mode.`
       : status
 
   const captureAndAssess = useCallback(async () => {
@@ -97,9 +115,20 @@ export function KimVisionPanel() {
       previousFrameRef.current = new Uint8ClampedArray(image.data)
       const timestamp = new Date().toISOString()
       let note = localNote(brightness, motion)
+      const imageDataUrl = canvas.toDataURL('image/jpeg', 0.68)
 
-      if (endpoint.trim()) {
-        note = await postVisionAssessment(endpoint.trim(), canvas.toDataURL('image/jpeg', 0.68), {
+      if (visionMode === 'moondream') {
+        try {
+          note = await assessWithMoondream(imageDataUrl, assessmentPrompt, modelId.trim() || defaultMoondreamModelId, setModelStatus)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Local Moondream failed.'
+          setModelStatus({ detail: message, stage: 'error' })
+          note = `${localNote(brightness, motion)} Local Moondream was unavailable: ${message}`
+        }
+      }
+
+      if (visionMode === 'proxy' && endpoint.trim()) {
+        note = await postVisionAssessment(endpoint.trim(), imageDataUrl, {
           brightness,
           frameCount: frameCountRef.current,
           height,
@@ -110,13 +139,17 @@ export function KimVisionPanel() {
       }
 
       setAssessments((current) => [{ brightness, motion, note, timestamp }, ...current].slice(0, 6))
-      setStatus(endpoint.trim() ? 'KIM assessment received.' : 'Local frame stats captured. Add an endpoint for KIM assessment.')
+      setStatus(visionMode === 'moondream'
+        ? 'Local Moondream pass complete.'
+        : visionMode === 'proxy' && endpoint.trim()
+          ? 'Proxy KIM assessment received.'
+          : 'Local frame stats captured.')
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Vision assessment failed.')
     } finally {
       setIsSending(false)
     }
-  }, [endpoint, isMirrored, isSending])
+  }, [endpoint, isMirrored, isSending, modelId, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
@@ -125,6 +158,14 @@ export function KimVisionPanel() {
   useEffect(() => {
     window.localStorage.setItem(endpointStorageKey, endpoint)
   }, [endpoint])
+
+  useEffect(() => {
+    window.localStorage.setItem(visionModeStorageKey, visionMode)
+  }, [visionMode])
+
+  useEffect(() => {
+    window.localStorage.setItem(modelStorageKey, modelId)
+  }, [modelId])
 
   useEffect(() => {
     if (!enabled || !isActive) return undefined
@@ -169,6 +210,14 @@ export function KimVisionPanel() {
       </div>
 
       <div className="kim-vision-controls">
+        <label htmlFor="kim-vision-mode">
+          <span>Analysis mode</span>
+          <select id="kim-vision-mode" onChange={(event) => setVisionMode(event.target.value as VisionMode)} value={visionMode}>
+            <option value="moondream">Local Moondream</option>
+            <option value="proxy">Proxy endpoint</option>
+            <option value="stats">Local stats only</option>
+          </select>
+        </label>
         <label htmlFor="kim-vision-interval">
           <span>Frame interval</span>
           <input
@@ -180,22 +229,53 @@ export function KimVisionPanel() {
             value={frameInterval}
           />
         </label>
-        <label htmlFor="kim-vision-endpoint">
-          <span>Vision endpoint</span>
+        <label htmlFor="kim-vision-model">
+          <span>HF model</span>
           <input
-            id="kim-vision-endpoint"
-            onChange={(event) => setEndpoint(event.target.value)}
-            placeholder="Proxy endpoint for KIM vision"
-            type="url"
-            value={endpoint}
+            disabled={visionMode !== 'moondream'}
+            id="kim-vision-model"
+            onChange={(event) => setModelId(event.target.value)}
+            placeholder={defaultMoondreamModelId}
+            type="text"
+            value={modelId}
           />
         </label>
+        {visionMode === 'proxy' ? (
+          <label htmlFor="kim-vision-endpoint">
+            <span>Vision endpoint</span>
+            <input
+              id="kim-vision-endpoint"
+              onChange={(event) => setEndpoint(event.target.value)}
+              placeholder="Proxy endpoint for KIM vision"
+              type="url"
+              value={endpoint}
+            />
+          </label>
+        ) : null}
       </div>
 
       <div className="camera-actions">
+        <button
+          disabled={visionMode !== 'moondream' || modelStatus.stage === 'loading' || modelStatus.stage === 'analyzing'}
+          onClick={() => void loadMoondream(modelId.trim() || defaultMoondreamModelId, setModelStatus).catch((error: unknown) => {
+            setModelStatus({ detail: error instanceof Error ? error.message : 'Moondream failed to load.', stage: 'error' })
+          })}
+          type="button"
+        >
+          {modelStatus.stage === 'loading' ? 'Loading model...' : 'Load model'}
+        </button>
         <button disabled={!isActive || isSending} onClick={() => void captureAndAssess()} type="button">
           {isSending ? 'Assessing...' : 'Analyze now'}
         </button>
+      </div>
+
+      <div className={`kim-vision-model-status ${modelStatus.stage}`}>
+        <strong>{visionMode === 'moondream' ? 'Local model' : visionMode === 'proxy' ? 'Remote endpoint' : 'Cost-free stats'}</strong>
+        <span>{visionMode === 'moondream'
+          ? modelStatus.detail
+          : visionMode === 'proxy'
+            ? 'Snapshots are sent only to the configured proxy endpoint.'
+            : 'No image leaves the browser; only brightness and motion are computed.'}</span>
       </div>
 
       <div className="kim-vision-feed">
