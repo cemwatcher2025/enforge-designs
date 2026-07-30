@@ -50,6 +50,67 @@
   pointer-events: none;
 }
 
+.world-mode-bar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+}
+
+.world-mode-bar button {
+  min-width: 74px;
+  min-height: 34px;
+  border: 1px solid rgba(0, 229, 255, 0.36);
+  background: rgba(2, 5, 10, 0.82);
+  color: #00e5ff;
+  font-weight: 900;
+  backdrop-filter: blur(12px);
+}
+
+.world-mode-bar button[data-active="true"] {
+  background: #40ff6a;
+  color: #05070d;
+}
+
+.world-play-card {
+  position: absolute;
+  top: 58px;
+  left: 12px;
+  z-index: 4;
+  display: grid;
+  gap: 7px;
+  width: min(280px, calc(100% - 24px));
+  padding: 10px;
+  border: 1px solid rgba(255, 47, 179, 0.34);
+  background: rgba(2, 5, 10, 0.84);
+  backdrop-filter: blur(14px);
+}
+
+.world-play-card strong {
+  color: #f3f7ff;
+  font-size: 13px;
+}
+
+.world-play-card span {
+  color: #a9b8d7;
+  font-size: 12px;
+}
+
+.world-play-card button {
+  min-height: 34px;
+  border: 1px solid rgba(255, 47, 179, 0.5);
+  background: #ff2fb3;
+  color: #05070d;
+  font-weight: 900;
+}
+
+.world-play-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .world-label {
   position: absolute;
   padding: 3px 6px;

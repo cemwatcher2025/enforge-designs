@@ -50,6 +50,8 @@ export function WorldEngine({ config }: WorldEngineProps) {
   const [renderStatus, setRenderStatus] = useState('Loading persistent world...')
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null)
   const [flashObjectId, setFlashObjectId] = useState<string | null>(null)
+  const [isPlayMode, setIsPlayMode] = useState(false)
+  const [nearbyObjectId, setNearbyObjectId] = useState<string | null>(null)
   const mountRef = useRef<HTMLDivElement | null>(null)
   const labelsRef = useRef<HTMLDivElement | null>(null)
   const runtimeRef = useRef<Record<string, any> | null>(null)
@@ -69,6 +71,10 @@ export function WorldEngine({ config }: WorldEngineProps) {
     () => selectedObjectId ? selectedObjectMap.get(selectedObjectId) ?? null : null,
     [selectedObjectId, selectedObjectMap],
   )
+  const nearbyObject = useMemo(
+    () => nearbyObjectId ? selectedObjectMap.get(nearbyObjectId) ?? null : null,
+    [nearbyObjectId, selectedObjectMap],
+  )
 
   async function handleInteract(object: WorldObject) {
     setFlashObjectId(object.id)
@@ -81,6 +87,16 @@ export function WorldEngine({ config }: WorldEngineProps) {
     if (!window.confirm('Reset the persistent world? This removes all world objects and interactions.')) return
     setSelectedObjectId(null)
     void resetWorld()
+  }
+
+  function togglePlayMode() {
+    setIsPlayMode((current) => !current)
+  }
+
+  function handlePlayInteract() {
+    if (!nearbyObject) return
+    setSelectedObjectId(nearbyObject.id)
+    void handleInteract(nearbyObject)
   }
 
   useEffect(() => {
@@ -151,17 +167,49 @@ export function WorldEngine({ config }: WorldEngineProps) {
           THREE,
           camera,
           controls,
+          isPlayMode: false,
           labelElements: new Map(),
           labels: labelsRef.current,
           loader,
           mount: safeContainer,
+          nearbyObjectId: null,
           objectGroups: new Map(),
+          playerKeys: new Set<string>(),
           raycaster,
           renderer,
           root,
           scene,
         }
         runtimeRef.current = runtime
+
+        const player = new THREE.Group()
+        player.name = 'Player Avatar'
+        const bodyMaterial = new THREE.MeshStandardMaterial({
+          color: 0x00e5ff,
+          emissive: 0x00485d,
+          metalness: 0.28,
+          roughness: 0.32,
+        })
+        const headMaterial = new THREE.MeshStandardMaterial({
+          color: 0xff2fb3,
+          emissive: 0x4a0d35,
+          metalness: 0.2,
+          roughness: 0.42,
+        })
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.95, 18), bodyMaterial)
+        body.position.y = 0.55
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 12), headMaterial)
+        head.position.y = 1.2
+        const facing = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, 0.08, 0.34),
+          new THREE.MeshStandardMaterial({ color: 0x40ff6a, emissive: 0x12451f }),
+        )
+        facing.position.set(0, 0.72, -0.34)
+        player.add(body, head, facing)
+        player.position.set(0, 0.05, 9.4)
+        player.visible = false
+        scene.add(player)
+        runtime.player = player
 
         function disposeObject(object: any) {
           object.traverse?.((node: any) => {
@@ -290,7 +338,9 @@ export function WorldEngine({ config }: WorldEngineProps) {
           const maxAxis = Math.max(size.x, size.y, size.z)
           if (maxAxis > 0) group.scale.multiplyScalar(Math.min(2.5 / maxAxis, 4))
           const nextBox = new THREE.Box3().setFromObject(group)
-          group.position.y -= nextBox.min.y
+          group.children.forEach((child: any) => {
+            child.position.y -= nextBox.min.y
+          })
         }
 
         function addPlaceholder(object: WorldObject) {
@@ -378,6 +428,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
         }
 
         function pickObject(event: PointerEvent) {
+          if (runtime.isPlayMode) return
           const rect = renderer.domElement.getBoundingClientRect()
           pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
           pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
@@ -388,6 +439,10 @@ export function WorldEngine({ config }: WorldEngineProps) {
         }
 
         function hoverObject(event: PointerEvent) {
+          if (runtime.isPlayMode) {
+            renderer.domElement.style.cursor = 'default'
+            return
+          }
           const rect = renderer.domElement.getBoundingClientRect()
           pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
           pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
@@ -419,8 +474,49 @@ export function WorldEngine({ config }: WorldEngineProps) {
           })
         }
 
+        function updateNearbyObjectId(id: string | null) {
+          if (runtime.nearbyObjectId === id) return
+          runtime.nearbyObjectId = id
+          setNearbyObjectId(id)
+          if (runtime.isPlayMode) setSelected(id)
+        }
+
+        function updatePlayer() {
+          if (!runtime.isPlayMode) return
+          const speed = 0.085
+          const direction = new THREE.Vector3()
+          if (runtime.playerKeys.has('KeyW') || runtime.playerKeys.has('ArrowUp')) direction.z -= 1
+          if (runtime.playerKeys.has('KeyS') || runtime.playerKeys.has('ArrowDown')) direction.z += 1
+          if (runtime.playerKeys.has('KeyA') || runtime.playerKeys.has('ArrowLeft')) direction.x -= 1
+          if (runtime.playerKeys.has('KeyD') || runtime.playerKeys.has('ArrowRight')) direction.x += 1
+          if (direction.lengthSq() > 0) {
+            direction.normalize()
+            player.position.addScaledVector(direction, speed)
+            player.position.x = THREE.MathUtils.clamp(player.position.x, -5.1, 5.1)
+            player.position.z = THREE.MathUtils.clamp(player.position.z, -22.8, 10.2)
+            player.rotation.y = Math.atan2(direction.x, direction.z)
+          }
+
+          camera.position.lerp(new THREE.Vector3(player.position.x + 4.8, player.position.y + 4.2, player.position.z + 7.2), 0.09)
+          controls.target.lerp(new THREE.Vector3(player.position.x, player.position.y + 0.85, player.position.z - 1.8), 0.16)
+
+          let closestId: string | null = null
+          let closestDistance = 2.1
+          runtime.objectGroups.forEach((group: any, id: string) => {
+            if (!attentionRef.current.objectMap.get(id)?.interactable) return
+            const center = new THREE.Box3().setFromObject(group).getCenter(new THREE.Vector3())
+            const distance = player.position.distanceTo(center)
+            if (distance < closestDistance) {
+              closestDistance = distance
+              closestId = id
+            }
+          })
+          updateNearbyObjectId(closestId)
+        }
+
         function animate() {
           if (disposed) return
+          updatePlayer()
           controls.update()
           updateLabels()
           renderer.render(scene, camera)
@@ -438,20 +534,63 @@ export function WorldEngine({ config }: WorldEngineProps) {
 
         renderer.domElement.addEventListener('click', pickObject)
         renderer.domElement.addEventListener('pointermove', hoverObject)
+        window.addEventListener('keydown', handleKeyDown)
+        window.addEventListener('keyup', handleKeyUp)
         window.addEventListener('resize', resize)
         runtime.cleanup = () => {
           renderer.domElement.removeEventListener('click', pickObject)
           renderer.domElement.removeEventListener('pointermove', hoverObject)
+          window.removeEventListener('keydown', handleKeyDown)
+          window.removeEventListener('keyup', handleKeyUp)
           window.removeEventListener('resize', resize)
           clearWorldObjects()
         }
         runtime.focusObject = focusObject
         runtime.loadWorldObjects = loadWorldObjects
+        runtime.setPlayMode = (enabled: boolean) => {
+          runtime.isPlayMode = enabled
+          player.visible = enabled
+          controls.enableRotate = !enabled
+          controls.enablePan = !enabled
+          controls.enableZoom = !enabled
+          renderer.domElement.style.cursor = enabled ? 'default' : 'grab'
+          if (enabled) {
+            player.position.set(0, 0.05, 9.4)
+            camera.position.set(player.position.x + 4.8, player.position.y + 4.2, player.position.z + 7.2)
+            controls.target.set(player.position.x, player.position.y + 0.85, player.position.z - 1.8)
+          } else {
+            runtime.playerKeys.clear()
+            setNearbyObjectId(null)
+            camera.position.set(7.5, 5.2, 17)
+            controls.target.set(0, 0.8, -3.5)
+          }
+          controls.update()
+        }
         runtime.setSelected = setSelected
         runtime.updateAttentionLabels = updateAttentionLabels
 
         loadWorldObjects(state.objects)
         animate()
+
+        function handleKeyDown(event: KeyboardEvent) {
+          if (!runtime.isPlayMode) return
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(event.code)) {
+            event.preventDefault()
+            runtime.playerKeys.add(event.code)
+          }
+          if (event.code === 'KeyE' || event.code === 'Space') {
+            event.preventDefault()
+            const object = runtime.nearbyObjectId ? attentionRef.current.objectMap.get(runtime.nearbyObjectId) : null
+            if (object) void handleInteract(object)
+          }
+          if (event.code === 'Escape') {
+            setIsPlayMode(false)
+          }
+        }
+
+        function handleKeyUp(event: KeyboardEvent) {
+          runtime.playerKeys.delete(event.code)
+        }
       } catch (caught) {
         setRenderStatus(caught instanceof Error ? caught.message : 'World renderer failed to start.')
       }
@@ -480,6 +619,10 @@ export function WorldEngine({ config }: WorldEngineProps) {
   }, [selectedObjectId])
 
   useEffect(() => {
+    runtimeRef.current?.setPlayMode?.(isPlayMode)
+  }, [isPlayMode])
+
+  useEffect(() => {
     if (!flashObjectId) return
     const group = runtimeRef.current?.objectGroups?.get(flashObjectId)
     if (!group) return
@@ -494,6 +637,19 @@ export function WorldEngine({ config }: WorldEngineProps) {
       <div className="world-viewport">
         <div className="world-canvas-wrap" ref={mountRef} />
         <div className="world-label-layer" ref={labelsRef} />
+        <div className="world-mode-bar">
+          <button data-active={!isPlayMode} onClick={() => setIsPlayMode(false)} type="button">Editor</button>
+          <button data-active={isPlayMode} onClick={togglePlayMode} type="button">{isPlayMode ? 'Exit Play' : 'Play'}</button>
+        </div>
+        {isPlayMode ? (
+          <div className="world-play-card">
+            <strong>{nearbyObject ? nearbyObject.name : 'Explore Signal Station'}</strong>
+            <span>{nearbyObject ? `${nearbyObject.interactionType.toUpperCase()} ready` : 'WASD / arrows to move'}</span>
+            <button disabled={!nearbyObject} onClick={handlePlayInteract} type="button">
+              {nearbyObject ? `${nearbyObject.interactionType} [E]` : 'No target nearby'}
+            </button>
+          </div>
+        ) : null}
         <div className="world-hud">
           <strong>{selectedObject?.name ?? config.title}</strong>
           <span>{error ?? renderStatus}</span>
