@@ -15,13 +15,17 @@ export function WorldObjectList({
   onFocusObject,
   onSelectObject,
 }: WorldObjectListProps) {
+  const interactiveObjects = objects.filter((object) => object.interactable)
+  const decorCount = objects.length - interactiveObjects.length
+
   return (
     <section className="world-panel-section">
       <strong>World objects</strong>
+      {decorCount > 0 ? <p>{decorCount} decor pieces are part of the level but hidden from this interaction list.</p> : null}
       <div className="world-object-list">
-        {objects.length === 0 ? (
+        {interactiveObjects.length === 0 ? (
           <p>No objects in the persistent world yet.</p>
-        ) : objects.map((object) => (
+        ) : interactiveObjects.map((object) => (
           <button
             data-active={selectedObjectId === object.id}
             data-attention={object.interactable && !interactedObjectIds.has(object.id)}

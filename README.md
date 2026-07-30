@@ -145,8 +145,10 @@ Phase 8 status:
 - World mode loads persistent state from `GET /api/world/state`.
 - World objects can load `.glb` / `.gltf` URLs or fall back to labeled geometric placeholders if loading fails.
 - World object list, focus/select behavior, object details, action button, hover/selection feedback, and recent interaction log shipped.
+- Non-interactive world decor is supported: static props render in the scene without labels, red-dot attention markers, or sidebar clutter.
 - World interactions post to `POST /api/world/interactions` and persist through the proxy.
 - World reset is available in the UI with confirmation.
+- Stage reset in progress: the previous experimental object field is being replaced by a coherent Signal Station level with Poly Haven CC0 environment assets, gameplay-critical interactables, and non-interactive atmosphere/decor.
 
 ### Ministry Panel
 

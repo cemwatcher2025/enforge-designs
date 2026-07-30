@@ -182,6 +182,11 @@ export function WorldEngine({ config }: WorldEngineProps) {
         }
 
         function markObject(group: any, object: WorldObject) {
+          if (!object.interactable) {
+            group.name = object.name
+            group.userData.worldDecor = true
+            return
+          }
           group.userData.worldObjectId = object.id
           group.userData.worldSelectable = true
           group.name = object.name
@@ -232,7 +237,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
           markObject(group, object)
           root.add(group)
           runtime.objectGroups.set(object.id, group)
-          addLabel(object)
+          if (object.interactable) addLabel(object)
         }
 
         function loadWorldObjects(objects: WorldObject[]) {
@@ -260,7 +265,7 @@ export function WorldEngine({ config }: WorldEngineProps) {
                 markObject(group, object)
                 root.add(group)
                 runtime.objectGroups.set(object.id, group)
-                addLabel(object)
+                if (object.interactable) addLabel(object)
                 setRenderStatus(`World loaded with ${objects.length} objects.`)
               },
               undefined,
