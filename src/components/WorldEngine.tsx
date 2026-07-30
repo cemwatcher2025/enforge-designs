@@ -24,67 +24,67 @@ const gltfUrl = 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js
 const signalStationObjectives: WorldObjective[] = [
   {
     complete: 'The threshold has a purpose now.',
-    hint: 'Start at the front gate and read the shape of the route.',
+    hint: 'Stand by the front gate until Inspect is ready, then press E.',
     objectName: 'Arrival Gate',
     title: 'Inspect the arrival gate',
   },
   {
     complete: 'The latch fault is understood.',
-    hint: 'The gate mechanism is beside the entrance, low and slightly left.',
+    hint: 'Move to the small latch beside the entrance until Diagnose is ready.',
     objectName: 'Gate Latch',
     title: 'Diagnose the gate latch',
   },
   {
     complete: 'The ledger gives the station a language.',
-    hint: 'Look for the book on the receiving table past the entrance.',
+    hint: 'Look for the book on the receiving table past the entrance. Use Read when it is ready.',
     objectName: 'Receiving Ledger',
     title: 'Read the receiving ledger',
   },
   {
     complete: 'The old signal points deeper into the station.',
-    hint: 'The radio sits across the yard, facing the route.',
+    hint: 'The radio sits across the yard, facing the route. Use Listen when it is ready.',
     objectName: 'Old Yard Radio',
     title: 'Listen to the yard radio',
   },
   {
     complete: 'The maintenance bay is reachable.',
-    hint: 'The heavy door marks the transition from yard to workshop.',
+    hint: 'The heavy door marks the transition from yard to workshop. Use Unlock when it is ready.',
     objectName: 'Workshop Door',
     title: 'Unlock the workshop door',
   },
   {
     complete: 'The drill press can work again.',
-    hint: 'Find the large old machine in the workshop bay.',
+    hint: 'Find the large old machine in the workshop bay. Use Diagnose when it is ready.',
     objectName: 'Old Drill Press',
     title: 'Diagnose the drill press',
   },
   {
     complete: 'The station spine is visible.',
-    hint: 'The rugged laptop holds the route map near the back of the workshop.',
+    hint: 'The rugged laptop holds the route map near the back of the workshop. Use Read when it is ready.',
     objectName: 'Signal Laptop',
     title: 'Read the signal laptop',
   },
   {
     complete: 'The first memory is recovered.',
-    hint: 'The cassette recorder is a small object near the route out of the workshop.',
+    hint: 'The cassette recorder is a small object near the route out of the workshop. Use Collect when it is ready.',
     objectName: 'Cassette Recorder',
     title: 'Collect the cassette recorder',
   },
   {
     complete: 'The overlook accepts the route.',
-    hint: 'Follow the glowing path to the final gate.',
+    hint: 'Follow the glowing path to the final gate. Use Unlock when it is ready.',
     objectName: 'Overlook Gate',
     title: 'Unlock the overlook gate',
   },
   {
     complete: 'The signal has been redirected.',
-    hint: 'The console faces back down the full route.',
+    hint: 'The console faces back down the full route. Use Operate when it is ready.',
     objectName: 'Signal Console',
     title: 'Operate the signal console',
   },
   {
     complete: 'Signal Station One is awake.',
-    hint: 'The quiet beacon waits at the end of the overlook.',
+    hint: 'The quiet beacon waits at the end of the overlook. Use Illuminate when it is ready.',
     objectName: 'Beacon Lamp',
     title: 'Illuminate the beacon',
   },
@@ -134,10 +134,12 @@ export function WorldEngine({ config }: WorldEngineProps) {
   const runtimeRef = useRef<Record<string, any> | null>(null)
   const attentionRef = useRef<{
     attentionObjectIds: Set<string>
+    currentObjectiveObjectId: string | null
     interactedObjectIds: Set<string>
     objectMap: Map<string, WorldObject>
   }>({
     attentionObjectIds: new Set(),
+    currentObjectiveObjectId: null,
     interactedObjectIds: new Set(),
     objectMap: new Map(),
   })
@@ -219,9 +221,9 @@ export function WorldEngine({ config }: WorldEngineProps) {
   }
 
   useEffect(() => {
-    attentionRef.current = { attentionObjectIds, interactedObjectIds, objectMap: selectedObjectMap }
+    attentionRef.current = { attentionObjectIds, currentObjectiveObjectId, interactedObjectIds, objectMap: selectedObjectMap }
     runtimeRef.current?.updateAttentionLabels?.()
-  }, [attentionObjectIds, interactedObjectIds, selectedObjectMap])
+  }, [attentionObjectIds, currentObjectiveObjectId, interactedObjectIds, selectedObjectMap])
 
   useEffect(() => {
     let disposed = false
@@ -622,6 +624,18 @@ export function WorldEngine({ config }: WorldEngineProps) {
 
           let closestId: string | null = null
           let closestDistance = 2.1
+          const objectiveObjectId = attentionRef.current.currentObjectiveObjectId
+          if (objectiveObjectId) {
+            const objectiveGroup = runtime.objectGroups.get(objectiveObjectId)
+            if (objectiveGroup) {
+              const objectiveCenter = new THREE.Box3().setFromObject(objectiveGroup).getCenter(new THREE.Vector3())
+              const objectiveDistance = player.position.distanceTo(objectiveCenter)
+              if (objectiveDistance < 3.4) {
+                updateNearbyObjectId(objectiveObjectId)
+                return
+              }
+            }
+          }
           runtime.objectGroups.forEach((group: any, id: string) => {
             const object = attentionRef.current.objectMap.get(id)
             if (!object?.interactable) return
