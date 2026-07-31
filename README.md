@@ -40,7 +40,7 @@ Build order:
 - Phase 7 KIM mic/camera processing is browser-local only. ElevenLabs API key is never committed or synced to the proxy; it is stored only in browser localStorage through KIM settings.
 - The Studio Camera panel uses browser `getUserMedia` for a local-only webcam preview. It does not record, upload, or send video to a server.
 - The KIM Vision panel samples the shared Studio Camera stream only when camera preview is active and analysis is enabled. It defaults to local Moondream2 inference through Hugging Face Transformers.js, but uses event-driven triggers so routine visual assessments avoid paid vision-token costs and unnecessary local model runs. Proxy endpoint mode remains available as a fallback.
-- A local GPU vision server bridge now lives in `local-vision-server/`. It exposes `GET /health` and `POST /analyze` on `http://127.0.0.1:8765`, installs `onnxruntime-directml`, caches the Moondream ONNX files, and gives the browser a localhost target for future DirectML inference. The HTTP boundary is ready, but full Moondream multi-session ONNX generation still needs to be completed before this mode replaces browser Moondream for real descriptions.
+- A local GPU vision server lives in `local-vision-server/`. It exposes `GET /health`, `POST /analyze`, `POST /caption`, `POST /query`, and `POST /detect` on `http://127.0.0.1:8765`, installs `onnxruntime-directml`, caches the Moondream ONNX files, and runs caption/query generation through DirectML. `/detect` is exposed but returns `501` until the region coordinate/size autoregressive loop is implemented.
 - Phase 8 turns the 3D Sandbox panel into a mode-switched tool: Sandbox mode remains local/freeform, and World mode loads persistent scene state from the Replit proxy.
 - The ROAM Interaction Library PDF has been converted into a portable interaction grammar for the dashboard, ROAM, Unreal Engine, and future projects. Canonical files live in `world-design/`.
 
@@ -152,7 +152,7 @@ Status:
 - Local frame stats include brightness and frame-to-frame motion.
 - Local Moondream2 assessment is the default mode. The first use downloads `Xenova/moondream2` from Hugging Face and runs it in the browser with WebGPU through `@huggingface/transformers`.
 - Local mode does not send snapshots to the Replit proxy or a paid vision API. It only downloads/cache-loads model files from Hugging Face.
-- Local GPU Server mode is available at `http://127.0.0.1:8765` for a Windows background server. Start it with `local-vision-server/start_server.bat`. It is currently a DirectML-ready scaffold rather than completed Moondream inference.
+- Local GPU Server mode is available at `http://127.0.0.1:8765` for a Windows background server. Start it with `local-vision-server/start_server.bat`. It uses ONNX Runtime DirectML with `vision_encoder_q4.onnx`, `embed_tokens_int8.onnx`, and `decoder_model_merged_q4.onnx` for local caption/query generation.
 - Proxy endpoint mode remains available, defaulting to the Replit proxy `/api/kim/vision` when `VITE_COMMAND_CENTER_PROXY_URL` is configured.
 - The proxy endpoint forwards snapshots only when `KIM_VISION_ENDPOINT` is configured in Replit. Without that secret, it returns a clear not-configured response.
 - Local stats mode is available for zero-network, zero-model fallback analysis.
@@ -213,7 +213,7 @@ Known service endpoints:
 | KIM Assistant | `https://kim-assistant.replit.app` | Live through secure proxy |
 | World Engine | Replit proxy `/api/world/*` | Persistent proxy JSON store |
 | Hugging Face Moondream2 | `Xenova/moondream2` | Browser-local KIM Vision model |
-| Local KIM Vision Server | `http://127.0.0.1:8765` | DirectML ONNX bridge scaffold |
+| Local KIM Vision Server | `http://127.0.0.1:8765` | DirectML ONNX caption/query server |
 | ElevenLabs | ElevenLabs API | Pending secure proxy |
 | Lindy | `https://chat.lindy.ai` | Manual/link-out; no public API currently |
 

@@ -4,4 +4,5 @@ pillow==10.4.0
 numpy==2.2.6
 huggingface_hub==0.34.4
 onnxruntime-directml==1.22.0
-
+onnx==1.22.0
+tokenizers==0.21.4
