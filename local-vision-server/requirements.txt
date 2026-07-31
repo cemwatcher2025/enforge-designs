@@ -1,0 +1,7 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+pillow==10.4.0
+numpy==2.2.6
+huggingface_hub==0.34.4
+onnxruntime-directml==1.22.0
+

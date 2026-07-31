@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 proxy/data/
+local-vision-server/.venv/
+local-vision-server/models/
+local-vision-server/__pycache__/
+.tmp_moondream_pkg/
 *.local
 public/world-assets/polyhaven/fir_tree_01/
 public/world-assets/polyhaven/fir_sapling_medium/

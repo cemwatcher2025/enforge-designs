@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCamera } from '../context/cameraContext'
 import { assessWithMoondream, defaultMoondreamModelId, hasBrowserMoondreamSupport, loadMoondream, type MoondreamStatus } from '../utils/moondreamVision'
 
-type VisionMode = 'moondream' | 'proxy' | 'stats'
+type VisionMode = 'gpuServer' | 'moondream' | 'proxy' | 'stats'
 
 type VisionAssessment = {
   brightness: number
@@ -14,6 +14,7 @@ type VisionAssessment = {
 }
 
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
+const gpuEndpointStorageKey = 'enforge-kim-vision-gpu-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
 const modelStorageKey = 'enforge-kim-vision-model'
 const motionThresholdStorageKey = 'enforge-kim-vision-motion-threshold'
@@ -24,6 +25,7 @@ const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
   || (import.meta.env.VITE_COMMAND_CENTER_PROXY_URL
     ? `${String(import.meta.env.VITE_COMMAND_CENTER_PROXY_URL).replace(/\/$/, '')}/api/kim/vision`
     : '')
+const defaultGpuEndpoint = 'http://127.0.0.1:8765'
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -69,6 +71,28 @@ async function postVisionAssessment(endpoint: string, imageDataUrl: string, meta
   return payload.assessment || payload.summary || 'KIM received the frame but did not return a text assessment.'
 }
 
+async function postGpuServerAssessment(baseUrl: string, imageDataUrl: string, metadata: Record<string, unknown>) {
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/analyze`, {
+    body: JSON.stringify({
+      imageDataUrl,
+      metadata,
+      prompt: assessmentPrompt,
+    }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  })
+  const payload = await response.json().catch(() => ({})) as { description?: string; detail?: string; error?: string }
+  if (!response.ok) throw new Error(payload.detail || payload.error || `Local GPU server returned ${response.status}`)
+  return payload.description || 'Local GPU server returned an empty assessment.'
+}
+
+async function checkGpuServerHealth(baseUrl: string) {
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/health`)
+  const payload = await response.json().catch(() => ({})) as { ok?: boolean; provider?: string | null; ready?: boolean; detail?: string }
+  if (!response.ok) throw new Error(payload.detail || `Local GPU server returned ${response.status}`)
+  return payload
+}
+
 export function KimVisionPanel() {
   const { attachVideo, isActive, isMirrored } = useCamera()
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -83,12 +107,14 @@ export function KimVisionPanel() {
   const [deepAutoEnabled, setDeepAutoEnabled] = useState(() => window.localStorage.getItem(deepAutoStorageKey) === 'true')
   const [visionMode, setVisionMode] = useState<VisionMode>(() => {
     const saved = window.localStorage.getItem(visionModeStorageKey)
-    return saved === 'proxy' || saved === 'stats' || saved === 'moondream' ? saved : 'moondream'
+    return saved === 'gpuServer' || saved === 'proxy' || saved === 'stats' || saved === 'moondream' ? saved : 'moondream'
   })
   const [modelId, setModelId] = useState(() => window.localStorage.getItem(modelStorageKey) || defaultMoondreamModelId)
   const [endpoint, setEndpoint] = useState(() => window.localStorage.getItem(endpointStorageKey) || defaultVisionEndpoint)
+  const [gpuEndpoint, setGpuEndpoint] = useState(() => window.localStorage.getItem(gpuEndpointStorageKey) || defaultGpuEndpoint)
   const [isSending, setIsSending] = useState(false)
   const [status, setStatus] = useState('Waiting for camera.')
+  const [gpuServerStatus, setGpuServerStatus] = useState('Not checked.')
   const [modelStatus, setModelStatus] = useState<MoondreamStatus>({
     detail: hasBrowserMoondreamSupport()
       ? 'Local Moondream is available. First analysis downloads the model from Hugging Face.'
@@ -108,6 +134,17 @@ export function KimVisionPanel() {
     : enabled
       ? `KIM is watching for meaningful changes every ${frameInterval.toLocaleString()} frames.`
       : status
+
+  const refreshGpuServerHealth = useCallback(async () => {
+    setGpuServerStatus('Checking local GPU server...')
+    try {
+      const health = await checkGpuServerHealth(gpuEndpoint.trim() || defaultGpuEndpoint)
+      const provider = health.provider || 'no GPU provider'
+      setGpuServerStatus(`${health.ok ? 'Online' : 'Unavailable'}: ${provider}. ${health.detail || ''}`)
+    } catch (error) {
+      setGpuServerStatus(error instanceof Error ? error.message : 'Local GPU server health check failed.')
+    }
+  }, [gpuEndpoint])
 
   const captureAndAssess = useCallback(async (trigger = 'manual', forceAssessment = true) => {
     const video = videoRef.current
@@ -158,6 +195,22 @@ export function KimVisionPanel() {
         note = `Change noticed: ${assessmentTrigger}. ${localNote(brightness, motion)} Deep assessment skipped to keep the dashboard responsive.`
       }
 
+      if (runDeepAssessment && visionMode === 'gpuServer') {
+        try {
+          note = await postGpuServerAssessment(gpuEndpoint.trim() || defaultGpuEndpoint, imageDataUrl, {
+            brightness,
+            frameCount: frameCountRef.current,
+            height,
+            motion,
+            timestamp,
+            width,
+          })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Local GPU server failed.'
+          note = `${localNote(brightness, motion)} Local GPU server unavailable: ${message}`
+        }
+      }
+
       if (runDeepAssessment && visionMode === 'moondream') {
         try {
           note = await assessWithMoondream(imageDataUrl, assessmentPrompt, modelId.trim() || defaultMoondreamModelId, setModelStatus)
@@ -183,6 +236,8 @@ export function KimVisionPanel() {
       setAssessments((current) => [{ brightness, mode: visionMode, motion, note, timestamp, trigger: assessmentTrigger }, ...current].slice(0, 20))
       setStatus(visionMode === 'moondream'
         ? runDeepAssessment ? `Local Moondream pass complete: ${assessmentTrigger}.` : `Change logged without deep model: ${assessmentTrigger}.`
+        : visionMode === 'gpuServer'
+          ? runDeepAssessment ? `Local GPU server pass complete: ${assessmentTrigger}.` : `Change logged without deep model: ${assessmentTrigger}.`
         : visionMode === 'proxy' && endpoint.trim()
           ? `Proxy KIM assessment received: ${assessmentTrigger}.`
           : `Local frame stats captured: ${assessmentTrigger}.`)
@@ -191,7 +246,7 @@ export function KimVisionPanel() {
     } finally {
       setIsSending(false)
     }
-  }, [cooldownSeconds, deepAutoEnabled, endpoint, isMirrored, isSending, modelId, motionThreshold, visionMode])
+  }, [cooldownSeconds, deepAutoEnabled, endpoint, gpuEndpoint, isMirrored, isSending, modelId, motionThreshold, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
@@ -200,6 +255,10 @@ export function KimVisionPanel() {
   useEffect(() => {
     window.localStorage.setItem(endpointStorageKey, endpoint)
   }, [endpoint])
+
+  useEffect(() => {
+    window.localStorage.setItem(gpuEndpointStorageKey, gpuEndpoint)
+  }, [gpuEndpoint])
 
   useEffect(() => {
     window.localStorage.setItem(visionModeStorageKey, visionMode)
@@ -271,6 +330,7 @@ export function KimVisionPanel() {
         <label htmlFor="kim-vision-mode">
           <span>Analysis mode</span>
           <select id="kim-vision-mode" onChange={(event) => setVisionMode(event.target.value as VisionMode)} value={visionMode}>
+            <option value="gpuServer">Local GPU Server</option>
             <option value="moondream">Local Moondream</option>
             <option value="proxy">Proxy endpoint</option>
             <option value="stats">Local stats only</option>
@@ -326,6 +386,18 @@ export function KimVisionPanel() {
             value={modelId}
           />
         </label>
+        {visionMode === 'gpuServer' ? (
+          <label htmlFor="kim-vision-gpu-endpoint">
+            <span>GPU server</span>
+            <input
+              id="kim-vision-gpu-endpoint"
+              onChange={(event) => setGpuEndpoint(event.target.value)}
+              placeholder={defaultGpuEndpoint}
+              type="url"
+              value={gpuEndpoint}
+            />
+          </label>
+        ) : null}
         {visionMode === 'proxy' ? (
           <label htmlFor="kim-vision-endpoint">
             <span>Vision endpoint</span>
@@ -353,17 +425,22 @@ export function KimVisionPanel() {
         <button disabled={!isActive || isSending} onClick={() => void captureAndAssess('manual', true)} type="button">
           {isSending ? 'Assessing...' : 'Analyze now'}
         </button>
+        <button disabled={visionMode !== 'gpuServer'} onClick={() => void refreshGpuServerHealth()} type="button">
+          Check server
+        </button>
         <button disabled={assessments.length === 0} onClick={() => setAssessments([])} type="button">
           Clear log
         </button>
       </div>
 
       <div className={`kim-vision-model-status ${modelStatus.stage}`}>
-        <strong>{visionMode === 'moondream' ? 'Local model' : visionMode === 'proxy' ? 'Remote endpoint' : 'Cost-free stats'}</strong>
+        <strong>{visionMode === 'gpuServer' ? 'Local GPU server' : visionMode === 'moondream' ? 'Browser model' : visionMode === 'proxy' ? 'Remote endpoint' : 'Cost-free stats'}</strong>
         <span>{visionMode === 'moondream'
           ? deepAutoEnabled
             ? `${modelStatus.detail} Automatic changes can run Moondream.`
             : `${modelStatus.detail} Automatic changes log fast; Analyze now runs Moondream.`
+          : visionMode === 'gpuServer'
+            ? `${gpuServerStatus} Automatic changes ${deepAutoEnabled ? 'can call' : 'log fast; Analyze now calls'} ${gpuEndpoint || defaultGpuEndpoint}.`
           : visionMode === 'proxy'
             ? 'Snapshots are sent only to the configured proxy endpoint.'
             : 'No image leaves the browser; only brightness and motion are computed.'}</span>
