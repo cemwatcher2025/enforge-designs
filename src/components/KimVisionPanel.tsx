@@ -50,6 +50,7 @@ const baselineAdaptRate = 0.12
 const defaultFrameInterval = 240
 const defaultCooldownSeconds = 45
 const strongMotionCooldownSeconds = 22
+const sustainedMotionCooldownSeconds = 14
 const motionProbeFrames = 30
 
 function averageBrightness(data: Uint8ClampedArray) {
@@ -137,7 +138,7 @@ function baselineSignal(memory: VisionMemory, brightness: number, motion: number
   const motionDelta = Math.max(0, motionValue - usualMotion)
   const learnedBrightnessDelta = Math.abs(brightness - usualBrightness)
   const ready = memory.samples >= baselineWarmupSamples
-  const learnedMotionThreshold = Math.max(usualMotion + 6, Math.round(usualMotion * 2.5), 10)
+  const learnedMotionThreshold = Math.max(usualMotion + 4, Math.round(usualMotion * 2.1), 7)
 
   return {
     brightnessDelta: Math.max(brightnessDelta, learnedBrightnessDelta),
@@ -317,6 +318,7 @@ export function KimVisionPanel() {
   const lastAssessmentAtRef = useRef(0)
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const frameCountRef = useRef(0)
+  const motionTrailRef = useRef(0)
   const isSendingRef = useRef(false)
   const [enabled, setEnabled] = useState(false)
   const [frameInterval, setFrameInterval] = useState(loadFrameInterval)
@@ -396,14 +398,23 @@ export function KimVisionPanel() {
       const meaningfulMotion = motion != null && motion >= motionThreshold
       const meaningfulLightChange = brightnessDelta >= 14
       const learnedChange = signal.learnedMotionShift || signal.learnedBrightnessShift
+      const mildLearnedMotion = signal.ready
+        && motion != null
+        && motion >= Math.max((memoryRef.current.averageMotion ?? 0) + 3, 5)
+      motionTrailRef.current = mildLearnedMotion
+        ? Math.min(motionTrailRef.current + 1, 4)
+        : Math.max(motionTrailRef.current - 1, 0)
+      const sustainedLearnedMotion = signal.ready && motionTrailRef.current >= 2
       const strongLearnedMotion = signal.ready
         && motion != null
         && motion >= Math.max((memoryRef.current.averageMotion ?? 0) + 8, 12)
       const strongMotionCooldownOpen = now - lastAssessmentAtRef.current >= strongMotionCooldownSeconds * 1000
+      const sustainedMotionCooldownOpen = now - lastAssessmentAtRef.current >= sustainedMotionCooldownSeconds * 1000
       const triggerReason = triggerFromSignals(forceAssessment, motion, brightnessDelta, signal, motionThreshold)
       const shouldAssess = forceAssessment
-        || (cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange))
+        || (cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange || sustainedLearnedMotion))
         || (strongMotionCooldownOpen && strongLearnedMotion)
+        || (sustainedMotionCooldownOpen && sustainedLearnedMotion)
 
       if (!shouldAssess) {
         const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp)
@@ -425,7 +436,9 @@ export function KimVisionPanel() {
         return
       }
 
-      const assessmentTrigger = triggerReason || trigger
+      const assessmentTrigger = triggerReason
+        || (sustainedLearnedMotion && motion != null ? `sustained motion ${motion}%` : trigger)
+      motionTrailRef.current = 0
       const runDeepAssessment = forceAssessment || deepAutoEnabled
       if (runDeepAssessment) {
         isSendingRef.current = true
