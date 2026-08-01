@@ -148,7 +148,9 @@ Status:
 - Automatic model assessments are event-driven: cheap local brightness/motion checks run first, and Moondream/proxy analysis fires only when motion or lighting crosses configurable thresholds and the cooldown window is open.
 - Automatic deep model assessment is disabled by default through the KIM Vision `Deep auto` toggle so meaningful changes can be logged quickly without making the dashboard sluggish. Manual `Analyze now` still runs Moondream.
 - Repeated stable background details are discouraged in the vision prompt so KIM focuses on changed people, animals, objects, posture, activity, or interruptions.
-- Recent KIM Vision assessments persist to browser `localStorage` with trigger, brightness, motion, mode, timestamp, and note.
+- Recent KIM Vision assessments persist to browser `localStorage` with trigger, brightness, motion, mode, timestamp, kind, and note.
+- KIM Vision now writes a log entry for every scheduled frame check, even when motion stays below the deep-analysis threshold, so Brandon can tell it is actively sampling. Routine checks are visually subdued; meaningful notices and model observations remain highlighted.
+- KIM Vision Memory v1 stores a lightweight browser-local baseline with sample count, usual brightness, usual motion, last seen timestamp, and last deep observation. This is the first step toward KIM learning the room over time instead of repeatedly captioning stable background details.
 - Local frame stats include brightness and frame-to-frame motion.
 - Local Moondream2 assessment is the default mode. The first use downloads `Xenova/moondream2` from Hugging Face and runs it in the browser with WebGPU through `@huggingface/transformers`.
 - Local mode does not send snapshots to the Replit proxy or a paid vision API. It only downloads/cache-loads model files from Hugging Face.

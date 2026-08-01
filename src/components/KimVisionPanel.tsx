@@ -6,11 +6,20 @@ type VisionMode = 'gpuServer' | 'moondream' | 'proxy' | 'stats'
 
 type VisionAssessment = {
   brightness: number
+  kind?: 'check' | 'observation' | 'notice' | 'error'
   mode: VisionMode
   motion: number | null
   note: string
   timestamp: string
   trigger: string
+}
+
+type VisionMemory = {
+  averageBrightness: number | null
+  averageMotion: number | null
+  lastDeepObservation: string | null
+  lastSeenAt: string | null
+  samples: number
 }
 
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
@@ -21,6 +30,7 @@ const motionThresholdStorageKey = 'enforge-kim-vision-motion-threshold'
 const cooldownStorageKey = 'enforge-kim-vision-cooldown'
 const deepAutoStorageKey = 'enforge-kim-vision-deep-auto'
 const assessmentLogStorageKey = 'enforge-kim-vision-assessments'
+const visionMemoryStorageKey = 'enforge-kim-vision-memory'
 const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
   || (import.meta.env.VITE_COMMAND_CENTER_PROXY_URL
     ? `${String(import.meta.env.VITE_COMMAND_CENTER_PROXY_URL).replace(/\/$/, '')}/api/kim/vision`
@@ -54,7 +64,55 @@ function localNote(brightness: number, motion: number | null) {
   return `Local frame read: ${light} lighting, ${movement}.`
 }
 
-const assessmentPrompt = 'In one short sentence, assess only meaningful changes: Brandon present/away, focused/moving/phone, or new people/animals/objects. Do not restate stable room details. Do not identify private screen text.'
+function defaultVisionMemory(): VisionMemory {
+  return {
+    averageBrightness: null,
+    averageMotion: null,
+    lastDeepObservation: null,
+    lastSeenAt: null,
+    samples: 0,
+  }
+}
+
+function loadVisionMemory() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(visionMemoryStorageKey) || 'null') as VisionMemory | null
+    return parsed && typeof parsed.samples === 'number' ? parsed : defaultVisionMemory()
+  } catch {
+    return defaultVisionMemory()
+  }
+}
+
+function updateVisionMemory(memory: VisionMemory, brightness: number, motion: number | null, timestamp: string, deepObservation?: string) {
+  const samples = memory.samples + 1
+  const motionValue = motion ?? memory.averageMotion ?? 0
+  const nextMemory: VisionMemory = {
+    averageBrightness: memory.averageBrightness == null
+      ? brightness
+      : Math.round(((memory.averageBrightness * memory.samples) + brightness) / samples),
+    averageMotion: memory.averageMotion == null
+      ? motionValue
+      : Math.round(((memory.averageMotion * memory.samples) + motionValue) / samples),
+    lastDeepObservation: deepObservation || memory.lastDeepObservation,
+    lastSeenAt: timestamp,
+    samples,
+  }
+  window.localStorage.setItem(visionMemoryStorageKey, JSON.stringify(nextMemory))
+  return nextMemory
+}
+
+function quietCheckNote(brightness: number, motion: number | null, memory: VisionMemory) {
+  const memoryText = memory.samples < 8
+    ? `KIM is learning the room baseline (${memory.samples}/8 samples).`
+    : `Baseline learned: usual light ${memory.averageBrightness ?? brightness}%, usual motion ${memory.averageMotion ?? 0}%.`
+  return `Check logged: ${localNote(brightness, motion)} ${memoryText}`
+}
+
+const assessmentPrompt = 'In one short sentence, assess the most useful current observation: Brandon present/away, focused/moving/phone, or new people/animals/objects. Avoid generic fallback phrases. Do not restate stable room details. Do not identify private screen text.'
+
+function prependAssessment(current: VisionAssessment[], next: VisionAssessment) {
+  return [next, ...current].slice(0, 40)
+}
 
 async function postVisionAssessment(endpoint: string, imageDataUrl: string, metadata: Record<string, unknown>) {
   const response = await fetch(endpoint, {
@@ -99,6 +157,7 @@ export function KimVisionPanel() {
   const previousFrameRef = useRef<Uint8ClampedArray | null>(null)
   const lastBrightnessRef = useRef<number | null>(null)
   const lastAssessmentAtRef = useRef(0)
+  const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const frameCountRef = useRef(0)
   const [enabled, setEnabled] = useState(false)
   const [frameInterval, setFrameInterval] = useState(1000)
@@ -180,7 +239,19 @@ export function KimVisionPanel() {
       const shouldAssess = forceAssessment || (cooldownOpen && (meaningfulMotion || meaningfulLightChange))
 
       if (!shouldAssess) {
-        setStatus(`Watching quietly. Motion ${motion == null ? 'baseline' : `${motion}%`} stays below ${motionThreshold}%.`)
+        const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp)
+        memoryRef.current = nextMemory
+        const quietNote = quietCheckNote(brightness, motion, nextMemory)
+        setAssessments((current) => prependAssessment(current, {
+          brightness,
+          kind: 'check',
+          mode: visionMode,
+          motion,
+          note: quietNote,
+          timestamp,
+          trigger: 'routine check',
+        }))
+        setStatus(`Routine check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} stays below ${motionThreshold}%.`)
         return
       }
 
@@ -233,7 +304,17 @@ export function KimVisionPanel() {
       }
 
       lastAssessmentAtRef.current = now
-      setAssessments((current) => [{ brightness, mode: visionMode, motion, note, timestamp, trigger: assessmentTrigger }, ...current].slice(0, 20))
+      const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp, runDeepAssessment ? note : undefined)
+      memoryRef.current = nextMemory
+      setAssessments((current) => prependAssessment(current, {
+        brightness,
+        kind: runDeepAssessment ? 'observation' : 'notice',
+        mode: visionMode,
+        motion,
+        note,
+        timestamp,
+        trigger: assessmentTrigger,
+      }))
       setStatus(visionMode === 'moondream'
         ? runDeepAssessment ? `Local Moondream pass complete: ${assessmentTrigger}.` : `Change logged without deep model: ${assessmentTrigger}.`
         : visionMode === 'gpuServer'
@@ -450,7 +531,7 @@ export function KimVisionPanel() {
         {assessments.length === 0 ? (
           <p>No assessments yet. Start the camera, enable analysis, or click Analyze now.</p>
         ) : assessments.map((assessment) => (
-          <div key={assessment.timestamp}>
+          <div data-kind={assessment.kind || 'observation'} key={assessment.timestamp}>
             <strong>{new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(assessment.timestamp))}</strong>
             <p>{assessment.note}</p>
             <span>{assessment.trigger} · Light {assessment.brightness}% · Motion {assessment.motion == null ? 'baseline' : `${assessment.motion}%`}</span>

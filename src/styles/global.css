@@ -951,10 +951,28 @@ h2 {
   background: rgba(255, 255, 255, 0.055);
 }
 
+.kim-vision-feed div[data-kind="check"] {
+  border-left: 2px solid rgba(169, 184, 215, 0.38);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.kim-vision-feed div[data-kind="notice"] {
+  border-left: 2px solid #ff2fb3;
+  background: rgba(255, 47, 179, 0.08);
+}
+
+.kim-vision-feed div[data-kind="observation"] {
+  border-left: 2px solid #00e5ff;
+}
+
 .kim-vision-feed strong {
   display: block;
   margin-bottom: 6px;
   color: #00e5ff;
+}
+
+.kim-vision-feed div[data-kind="check"] strong {
+  color: #a9b8d7;
 }
 
 .kim-vision-feed p {
