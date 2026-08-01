@@ -50,6 +50,7 @@ const baselineAdaptRate = 0.12
 const defaultFrameInterval = 240
 const defaultCooldownSeconds = 45
 const strongMotionCooldownSeconds = 22
+const motionProbeFrames = 30
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -316,6 +317,7 @@ export function KimVisionPanel() {
   const lastAssessmentAtRef = useRef(0)
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const frameCountRef = useRef(0)
+  const isSendingRef = useRef(false)
   const [enabled, setEnabled] = useState(false)
   const [frameInterval, setFrameInterval] = useState(loadFrameInterval)
   const [motionThreshold, setMotionThreshold] = useState(() => Number(window.localStorage.getItem(motionThresholdStorageKey) || 22))
@@ -348,7 +350,7 @@ export function KimVisionPanel() {
   const effectiveStatus = !isActive
     ? 'Waiting for camera.'
     : enabled
-      ? `KIM is watching for meaningful changes every ${frameInterval.toLocaleString()} frames.`
+      ? `KIM is probing motion every ${motionProbeFrames} frames and logging routine checks every ${frameInterval.toLocaleString()} frames.`
       : status
 
   const refreshGpuServerHealth = useCallback(async () => {
@@ -362,10 +364,9 @@ export function KimVisionPanel() {
     }
   }, [gpuEndpoint])
 
-  const captureAndAssess = useCallback(async (trigger = 'manual', forceAssessment = true) => {
+  const captureAndAssess = useCallback(async (trigger = 'manual', forceAssessment = true, logRoutineCheck = true) => {
     const video = videoRef.current
-    if (!video || video.readyState < 2 || isSending) return
-    setIsSending(true)
+    if (!video || video.readyState < 2 || isSendingRef.current) return
 
     try {
       const width = 320
@@ -407,6 +408,7 @@ export function KimVisionPanel() {
       if (!shouldAssess) {
         const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp)
         memoryRef.current = nextMemory
+        if (!logRoutineCheck) return
         const quietNote = quietCheckNote(brightness, motion, nextMemory)
         setAssessments((current) => prependAssessment(current, {
           brightness,
@@ -425,6 +427,11 @@ export function KimVisionPanel() {
 
       const assessmentTrigger = triggerReason || trigger
       const runDeepAssessment = forceAssessment || deepAutoEnabled
+      if (runDeepAssessment) {
+        isSendingRef.current = true
+        setIsSending(true)
+        setStatus(`Frame captured; assessing frozen snapshot for ${assessmentTrigger}.`)
+      }
 
       if (!runDeepAssessment) {
         note = signal.ready && learnedChange
@@ -494,9 +501,10 @@ export function KimVisionPanel() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Vision assessment failed.')
     } finally {
+      isSendingRef.current = false
       setIsSending(false)
     }
-  }, [cooldownSeconds, deepAutoEnabled, endpoint, gpuEndpoint, isMirrored, isSending, modelId, motionThreshold, visionMode])
+  }, [cooldownSeconds, deepAutoEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
@@ -546,7 +554,11 @@ export function KimVisionPanel() {
     function tick() {
       if (cancelled) return
       frameCountRef.current += 1
-      if (frameCountRef.current % frameInterval === 0) void captureAndAssess('change detected', false)
+      if (frameCountRef.current % frameInterval === 0) {
+        void captureAndAssess('change detected', false, true)
+      } else if (frameCountRef.current % motionProbeFrames === 0) {
+        void captureAndAssess('motion probe', false, false)
+      }
       requestId = window.requestAnimationFrame(tick)
     }
 

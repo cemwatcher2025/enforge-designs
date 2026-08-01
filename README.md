@@ -145,6 +145,7 @@ Status:
 - Camera-aware visual assessment panel shipped.
 - Uses the existing Studio Camera stream and stays inactive while the camera is off.
 - Default watch interval is every 240 rendered frames, with a manual Analyze Now button. Existing higher saved intervals are automatically clamped down to the faster default so KIM reacts to movement without requiring Brandon to hold a pose.
+- KIM Vision also runs a quiet motion probe every 30 rendered frames. Probes do not spam routine log entries, but if motion crosses the learned trigger they freeze the current camera frame immediately and send that frozen snapshot to the model. This prevents slow actions such as standing up or leaving the room from being analyzed only after the person is already gone.
 - Automatic model assessments are event-driven: cheap local brightness/motion checks run first, and Moondream/proxy analysis fires only when motion or lighting crosses configurable thresholds and the cooldown window is open.
 - Automatic deep model assessment is disabled by default through the KIM Vision `Deep auto` toggle so meaningful changes can be logged quickly without making the dashboard sluggish. Manual `Analyze now` still runs Moondream.
 - Repeated stable background details are discouraged in the vision prompt so KIM focuses on changed people, animals, objects, posture, activity, or interruptions.
