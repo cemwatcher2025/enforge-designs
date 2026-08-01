@@ -22,6 +22,14 @@ type VisionMemory = {
   samples: number
 }
 
+type BaselineSignal = {
+  brightnessDelta: number
+  learnedBrightnessShift: boolean
+  learnedMotionShift: boolean
+  motionDelta: number
+  ready: boolean
+}
+
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
 const gpuEndpointStorageKey = 'enforge-kim-vision-gpu-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
@@ -106,6 +114,38 @@ function quietCheckNote(brightness: number, motion: number | null, memory: Visio
     ? `KIM is learning the room baseline (${memory.samples}/8 samples).`
     : `Baseline learned: usual light ${memory.averageBrightness ?? brightness}%, usual motion ${memory.averageMotion ?? 0}%.`
   return `Check logged: ${localNote(brightness, motion)} ${memoryText}`
+}
+
+function baselineSignal(memory: VisionMemory, brightness: number, motion: number | null, brightnessDelta: number): BaselineSignal {
+  const motionValue = motion ?? 0
+  const usualMotion = memory.averageMotion ?? 0
+  const usualBrightness = memory.averageBrightness ?? brightness
+  const motionDelta = Math.max(0, motionValue - usualMotion)
+  const learnedBrightnessDelta = Math.abs(brightness - usualBrightness)
+  const ready = memory.samples >= 8
+
+  return {
+    brightnessDelta: Math.max(brightnessDelta, learnedBrightnessDelta),
+    learnedBrightnessShift: ready && learnedBrightnessDelta >= 10,
+    learnedMotionShift: ready && motion != null && motionValue >= Math.max(usualMotion + 8, Math.round(usualMotion * 2.5), 12),
+    motionDelta,
+    ready,
+  }
+}
+
+function triggerFromSignals(
+  forceAssessment: boolean,
+  motion: number | null,
+  brightnessDelta: number,
+  signal: BaselineSignal,
+  motionThreshold: number,
+) {
+  if (forceAssessment) return 'manual'
+  if (motion != null && motion >= motionThreshold) return `motion ${motion}%`
+  if (brightnessDelta >= 14) return `lighting shift ${brightnessDelta}%`
+  if (signal.learnedMotionShift) return `learned motion shift +${signal.motionDelta}%`
+  if (signal.learnedBrightnessShift) return `learned light shift ${signal.brightnessDelta}%`
+  return null
 }
 
 const assessmentPrompt = 'In one short sentence, assess the most useful current observation: Brandon present/away, focused/moving/phone, or new people/animals/objects. Avoid generic fallback phrases. Do not restate stable room details. Do not identify private screen text.'
@@ -234,9 +274,12 @@ export function KimVisionPanel() {
       const imageDataUrl = canvas.toDataURL('image/jpeg', 0.68)
       const now = Date.now()
       const cooldownOpen = now - lastAssessmentAtRef.current >= cooldownSeconds * 1000
+      const signal = baselineSignal(memoryRef.current, brightness, motion, brightnessDelta)
       const meaningfulMotion = motion != null && motion >= motionThreshold
       const meaningfulLightChange = brightnessDelta >= 14
-      const shouldAssess = forceAssessment || (cooldownOpen && (meaningfulMotion || meaningfulLightChange))
+      const learnedChange = signal.learnedMotionShift || signal.learnedBrightnessShift
+      const triggerReason = triggerFromSignals(forceAssessment, motion, brightnessDelta, signal, motionThreshold)
+      const shouldAssess = forceAssessment || (cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange))
 
       if (!shouldAssess) {
         const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp)
@@ -251,19 +294,19 @@ export function KimVisionPanel() {
           timestamp,
           trigger: 'routine check',
         }))
-        setStatus(`Routine check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} stays below ${motionThreshold}%.`)
+        setStatus(signal.ready
+          ? `Routine check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} is within learned baseline.`
+          : `Routine check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} stays below ${motionThreshold}%.`)
         return
       }
 
-      const assessmentTrigger = forceAssessment
-        ? trigger
-        : meaningfulMotion
-          ? `motion ${motion}%`
-          : `lighting shift ${brightnessDelta}%`
+      const assessmentTrigger = triggerReason || trigger
       const runDeepAssessment = forceAssessment || deepAutoEnabled
 
       if (!runDeepAssessment) {
-        note = `Change noticed: ${assessmentTrigger}. ${localNote(brightness, motion)} Deep assessment skipped to keep the dashboard responsive.`
+        note = signal.ready && learnedChange
+          ? `Learned-baseline change noticed: ${assessmentTrigger}. ${localNote(brightness, motion)} Usual light ${memoryRef.current.averageBrightness ?? brightness}%, usual motion ${memoryRef.current.averageMotion ?? 0}%. Deep assessment skipped to keep the dashboard responsive.`
+          : `Change noticed: ${assessmentTrigger}. ${localNote(brightness, motion)} Deep assessment skipped to keep the dashboard responsive.`
       }
 
       if (runDeepAssessment && visionMode === 'gpuServer') {

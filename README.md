@@ -151,6 +151,7 @@ Status:
 - Recent KIM Vision assessments persist to browser `localStorage` with trigger, brightness, motion, mode, timestamp, kind, and note.
 - KIM Vision now writes a log entry for every scheduled frame check, even when motion stays below the deep-analysis threshold, so Brandon can tell it is actively sampling. Routine checks are visually subdued; meaningful notices and model observations remain highlighted.
 - KIM Vision Memory v1 stores a lightweight browser-local baseline with sample count, usual brightness, usual motion, last seen timestamp, and last deep observation. This is the first step toward KIM learning the room over time instead of repeatedly captioning stable background details.
+- KIM Vision uses baseline-aware triggers after 8 samples: motion or lighting can be considered meaningful when it departs from the learned room baseline, even if the fixed motion threshold is not crossed. This helps KIM adapt to Brandon's actual environment instead of relying only on generic numbers.
 - Local frame stats include brightness and frame-to-frame motion.
 - Local Moondream2 assessment is the default mode. The first use downloads `Xenova/moondream2` from Hugging Face and runs it in the browser with WebGPU through `@huggingface/transformers`.
 - Local mode does not send snapshots to the Replit proxy or a paid vision API. It only downloads/cache-loads model files from Hugging Face.
