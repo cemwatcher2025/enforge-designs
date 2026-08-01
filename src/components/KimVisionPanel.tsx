@@ -123,11 +123,12 @@ function baselineSignal(memory: VisionMemory, brightness: number, motion: number
   const motionDelta = Math.max(0, motionValue - usualMotion)
   const learnedBrightnessDelta = Math.abs(brightness - usualBrightness)
   const ready = memory.samples >= 8
+  const learnedMotionThreshold = Math.max(usualMotion + 6, Math.round(usualMotion * 2.5), 10)
 
   return {
     brightnessDelta: Math.max(brightnessDelta, learnedBrightnessDelta),
     learnedBrightnessShift: ready && learnedBrightnessDelta >= 10,
-    learnedMotionShift: ready && motion != null && motionValue >= Math.max(usualMotion + 8, Math.round(usualMotion * 2.5), 12),
+    learnedMotionShift: ready && motion != null && motionValue >= learnedMotionThreshold,
     motionDelta,
     ready,
   }
