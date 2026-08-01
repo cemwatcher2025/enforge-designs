@@ -44,6 +44,8 @@ const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
     ? `${String(import.meta.env.VITE_COMMAND_CENTER_PROXY_URL).replace(/\/$/, '')}/api/kim/vision`
     : '')
 const defaultGpuEndpoint = 'http://127.0.0.1:8765'
+const baselineWarmupSamples = 8
+const baselineAdaptRate = 0.12
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -94,13 +96,15 @@ function loadVisionMemory() {
 function updateVisionMemory(memory: VisionMemory, brightness: number, motion: number | null, timestamp: string, deepObservation?: string) {
   const samples = memory.samples + 1
   const motionValue = motion ?? memory.averageMotion ?? 0
+  const shouldWarmUp = memory.samples < baselineWarmupSamples
+  const blend = (current: number | null, next: number) => {
+    if (current == null) return next
+    if (shouldWarmUp) return ((current * memory.samples) + next) / samples
+    return (current * (1 - baselineAdaptRate)) + (next * baselineAdaptRate)
+  }
   const nextMemory: VisionMemory = {
-    averageBrightness: memory.averageBrightness == null
-      ? brightness
-      : Math.round(((memory.averageBrightness * memory.samples) + brightness) / samples),
-    averageMotion: memory.averageMotion == null
-      ? motionValue
-      : Math.round(((memory.averageMotion * memory.samples) + motionValue) / samples),
+    averageBrightness: Math.round(blend(memory.averageBrightness, brightness) * 10) / 10,
+    averageMotion: Math.round(blend(memory.averageMotion, motionValue) * 10) / 10,
     lastDeepObservation: deepObservation || memory.lastDeepObservation,
     lastSeenAt: timestamp,
     samples,
@@ -110,8 +114,8 @@ function updateVisionMemory(memory: VisionMemory, brightness: number, motion: nu
 }
 
 function quietCheckNote(brightness: number, motion: number | null, memory: VisionMemory) {
-  const memoryText = memory.samples < 8
-    ? `KIM is learning the room baseline (${memory.samples}/8 samples).`
+  const memoryText = memory.samples < baselineWarmupSamples
+    ? `KIM is learning the room baseline (${memory.samples}/${baselineWarmupSamples} samples).`
     : `Baseline learned: usual light ${memory.averageBrightness ?? brightness}%, usual motion ${memory.averageMotion ?? 0}%.`
   return `Check logged: ${localNote(brightness, motion)} ${memoryText}`
 }
@@ -122,7 +126,7 @@ function baselineSignal(memory: VisionMemory, brightness: number, motion: number
   const usualBrightness = memory.averageBrightness ?? brightness
   const motionDelta = Math.max(0, motionValue - usualMotion)
   const learnedBrightnessDelta = Math.abs(brightness - usualBrightness)
-  const ready = memory.samples >= 8
+  const ready = memory.samples >= baselineWarmupSamples
   const learnedMotionThreshold = Math.max(usualMotion + 6, Math.round(usualMotion * 2.5), 10)
 
   return {
@@ -149,10 +153,24 @@ function triggerFromSignals(
   return null
 }
 
-const assessmentPrompt = 'In one short sentence, assess the most useful current observation: Brandon present/away, focused/moving/phone, or new people/animals/objects. Avoid generic fallback phrases. Do not restate stable room details. Do not identify private screen text.'
+const assessmentPrompt = 'Question: What is the most useful current visual observation? Answer with one short natural sentence about whether Brandon is present, moving, using a phone/object, or whether a person/animal/object entered or left. Do not echo these instructions. Do not restate stable room details. Do not identify private screen text.'
 
 function prependAssessment(current: VisionAssessment[], next: VisionAssessment) {
   return [next, ...current].slice(0, 40)
+}
+
+function cleanModelObservation(note: string, fallback: string) {
+  const normalized = note.toLowerCase()
+  const instructionEchoes = [
+    'brandon present/away',
+    'focused/moving/phone',
+    'new people/animals/objects',
+    'what is the most useful current visual observation',
+  ]
+  if (instructionEchoes.some((phrase) => normalized.includes(phrase))) {
+    return `${fallback} Model echoed the observation prompt, so KIM logged this as a numeric notice instead.`
+  }
+  return note
 }
 
 async function postVisionAssessment(endpoint: string, imageDataUrl: string, metadata: Record<string, unknown>) {
@@ -320,6 +338,7 @@ export function KimVisionPanel() {
             timestamp,
             width,
           })
+          note = cleanModelObservation(note, localNote(brightness, motion))
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Local GPU server failed.'
           note = `${localNote(brightness, motion)} Local GPU server unavailable: ${message}`
@@ -329,6 +348,7 @@ export function KimVisionPanel() {
       if (runDeepAssessment && visionMode === 'moondream') {
         try {
           note = await assessWithMoondream(imageDataUrl, assessmentPrompt, modelId.trim() || defaultMoondreamModelId, setModelStatus)
+          note = cleanModelObservation(note, localNote(brightness, motion))
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Local Moondream failed.'
           setModelStatus({ detail: message, stage: 'error' })
@@ -345,6 +365,7 @@ export function KimVisionPanel() {
           timestamp,
           width,
         })
+        note = cleanModelObservation(note, localNote(brightness, motion))
       }
 
       lastAssessmentAtRef.current = now
