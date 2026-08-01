@@ -144,7 +144,7 @@ Status:
 
 - Camera-aware visual assessment panel shipped.
 - Uses the existing Studio Camera stream and stays inactive while the camera is off.
-- Default watch interval is every 1,000 rendered frames, with a manual Analyze Now button.
+- Default watch interval is every 240 rendered frames, with a manual Analyze Now button. Existing higher saved intervals are automatically clamped down to the faster default so KIM reacts to movement without requiring Brandon to hold a pose.
 - Automatic model assessments are event-driven: cheap local brightness/motion checks run first, and Moondream/proxy analysis fires only when motion or lighting crosses configurable thresholds and the cooldown window is open.
 - Automatic deep model assessment is disabled by default through the KIM Vision `Deep auto` toggle so meaningful changes can be logged quickly without making the dashboard sluggish. Manual `Analyze now` still runs Moondream.
 - Repeated stable background details are discouraged in the vision prompt so KIM focuses on changed people, animals, objects, posture, activity, or interruptions.
@@ -152,6 +152,7 @@ Status:
 - KIM Vision now writes a log entry for every scheduled frame check, even when motion stays below the deep-analysis threshold, so Brandon can tell it is actively sampling. Routine checks are visually subdued; meaningful notices and model observations remain highlighted.
 - KIM Vision Memory v1 stores a lightweight browser-local baseline with sample count, usual brightness, usual motion, last seen timestamp, and last deep observation. This is the first step toward KIM learning the room over time instead of repeatedly captioning stable background details.
 - KIM Vision uses baseline-aware triggers after 8 samples: motion or lighting can be considered meaningful when it departs from the learned room baseline, even if the fixed motion threshold is not crossed. Current learned motion trigger is conservative but room-sensitive: max of usual motion + 6%, 2.5x usual motion, or 10%. The baseline uses warmup averaging first, then an adaptive moving average so normal afternoon/evening light levels can become the new normal instead of being compared forever to an old baseline.
+- KIM Vision has a short strong-motion reaction window: large movement relative to the learned baseline can trigger after about 22 seconds even when the normal model cooldown is longer. This makes KIM feel more responsive while still preventing repeated deep model calls from every small motion.
 - KIM Vision trains the numeric baseline only from routine checks; triggered motion/light events update last-seen and last-observation data but do not teach KIM that high-motion moments are normal. This keeps spikes such as standing up or camera movement from poisoning the usual-motion baseline.
 - KIM Vision only lets calm/stable frames train the usual-motion baseline. Moderate routine movement can still be logged, but it is not allowed to gradually redefine the room's normal motion level upward.
 - KIM Vision uses a field-note style observation prompt and cleans obvious model prompt echoes before saving deep observations, so instruction fragments do not pollute the memory log. Clothing, facial expressions, stable room descriptions, and known low-confidence details are downgraded to numeric notices unless unmistakable.

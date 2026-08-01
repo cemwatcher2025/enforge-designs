@@ -34,6 +34,7 @@ const endpointStorageKey = 'enforge-kim-vision-endpoint'
 const gpuEndpointStorageKey = 'enforge-kim-vision-gpu-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
 const modelStorageKey = 'enforge-kim-vision-model'
+const frameIntervalStorageKey = 'enforge-kim-vision-frame-interval'
 const motionThresholdStorageKey = 'enforge-kim-vision-motion-threshold'
 const cooldownStorageKey = 'enforge-kim-vision-cooldown'
 const deepAutoStorageKey = 'enforge-kim-vision-deep-auto'
@@ -46,6 +47,9 @@ const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
 const defaultGpuEndpoint = 'http://127.0.0.1:8765'
 const baselineWarmupSamples = 8
 const baselineAdaptRate = 0.12
+const defaultFrameInterval = 240
+const defaultCooldownSeconds = 45
+const strongMotionCooldownSeconds = 22
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -141,6 +145,18 @@ function baselineSignal(memory: VisionMemory, brightness: number, motion: number
     motionDelta,
     ready,
   }
+}
+
+function loadFrameInterval() {
+  const saved = Number(window.localStorage.getItem(frameIntervalStorageKey) || defaultFrameInterval)
+  if (!Number.isFinite(saved) || saved <= 0) return defaultFrameInterval
+  return Math.min(saved, defaultFrameInterval)
+}
+
+function loadCooldownSeconds() {
+  const saved = Number(window.localStorage.getItem(cooldownStorageKey) || defaultCooldownSeconds)
+  if (!Number.isFinite(saved) || saved <= 0) return defaultCooldownSeconds
+  return Math.min(saved, defaultCooldownSeconds)
 }
 
 function triggerFromSignals(
@@ -269,9 +285,9 @@ export function KimVisionPanel() {
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const frameCountRef = useRef(0)
   const [enabled, setEnabled] = useState(false)
-  const [frameInterval, setFrameInterval] = useState(1000)
+  const [frameInterval, setFrameInterval] = useState(loadFrameInterval)
   const [motionThreshold, setMotionThreshold] = useState(() => Number(window.localStorage.getItem(motionThresholdStorageKey) || 22))
-  const [cooldownSeconds, setCooldownSeconds] = useState(() => Number(window.localStorage.getItem(cooldownStorageKey) || 90))
+  const [cooldownSeconds, setCooldownSeconds] = useState(loadCooldownSeconds)
   const [deepAutoEnabled, setDeepAutoEnabled] = useState(() => window.localStorage.getItem(deepAutoStorageKey) === 'true')
   const [visionMode, setVisionMode] = useState<VisionMode>(() => {
     const saved = window.localStorage.getItem(visionModeStorageKey)
@@ -347,8 +363,14 @@ export function KimVisionPanel() {
       const meaningfulMotion = motion != null && motion >= motionThreshold
       const meaningfulLightChange = brightnessDelta >= 14
       const learnedChange = signal.learnedMotionShift || signal.learnedBrightnessShift
+      const strongLearnedMotion = signal.ready
+        && motion != null
+        && motion >= Math.max((memoryRef.current.averageMotion ?? 0) + 8, 12)
+      const strongMotionCooldownOpen = now - lastAssessmentAtRef.current >= strongMotionCooldownSeconds * 1000
       const triggerReason = triggerFromSignals(forceAssessment, motion, brightnessDelta, signal, motionThreshold)
-      const shouldAssess = forceAssessment || (cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange))
+      const shouldAssess = forceAssessment
+        || (cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange))
+        || (strongMotionCooldownOpen && strongLearnedMotion)
 
       if (!shouldAssess) {
         const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp)
@@ -469,6 +491,10 @@ export function KimVisionPanel() {
   }, [motionThreshold])
 
   useEffect(() => {
+    window.localStorage.setItem(frameIntervalStorageKey, String(frameInterval))
+  }, [frameInterval])
+
+  useEffect(() => {
     window.localStorage.setItem(cooldownStorageKey, String(cooldownSeconds))
   }, [cooldownSeconds])
 
@@ -536,7 +562,7 @@ export function KimVisionPanel() {
           <span>Watch interval</span>
           <input
             id="kim-vision-interval"
-            min={120}
+            min={60}
             onChange={(event) => setFrameInterval(Number(event.target.value))}
             step={20}
             type="number"
@@ -560,9 +586,9 @@ export function KimVisionPanel() {
           <input
             id="kim-vision-cooldown"
             max={600}
-            min={20}
+            min={15}
             onChange={(event) => setCooldownSeconds(Number(event.target.value))}
-            step={10}
+            step={5}
             type="number"
             value={cooldownSeconds}
           />
