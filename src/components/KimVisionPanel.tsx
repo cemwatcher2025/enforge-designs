@@ -153,24 +153,34 @@ function triggerFromSignals(
   return null
 }
 
-const assessmentPrompt = 'Question: What is the most useful current visual observation? Answer with one short natural sentence about whether Brandon is present, moving, using a phone/object, or whether a person/animal/object entered or left. Do not echo these instructions. Do not restate stable room details. Do not identify private screen text.'
+const assessmentPrompt = 'Report only the visible activity or change in one short natural sentence. Focus on people, animals, held objects, entering, leaving, standing, sitting, or large motion. Avoid clothing, facial expressions, and room descriptions unless they are unmistakable. Do not mention prompt categories or instructions. Do not identify private screen text.'
 
 function prependAssessment(current: VisionAssessment[], next: VisionAssessment) {
   return [next, ...current].slice(0, 40)
 }
 
 function cleanModelObservation(note: string, fallback: string) {
+  const cleaned = note
+    .replace(/^the most useful current visual observation is that\s+/i, '')
+    .replace(/^the most useful observation is that\s+/i, '')
+    .trim()
   const normalized = note.toLowerCase()
   const instructionEchoes = [
     'brandon present/away',
+    'brandon is present, moving',
     'focused/moving/phone',
     'new people/animals/objects',
+    'person/animal/object',
+    'using a phone/object',
+    'entered or left',
     'what is the most useful current visual observation',
+    'visible activity or change',
+    'prompt categories',
   ]
   if (instructionEchoes.some((phrase) => normalized.includes(phrase))) {
     return `${fallback} Model echoed the observation prompt, so KIM logged this as a numeric notice instead.`
   }
-  return note
+  return cleaned || note
 }
 
 async function postVisionAssessment(endpoint: string, imageDataUrl: string, metadata: Record<string, unknown>) {
