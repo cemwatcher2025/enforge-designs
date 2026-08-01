@@ -195,7 +195,7 @@ function cleanModelObservation(note: string, fallback: string) {
     .replace(/^the most useful current visual observation is that\s+/i, '')
     .replace(/^the most useful observation is that\s+/i, '')
     .trim()
-  const normalized = note.toLowerCase()
+  const normalized = cleaned.toLowerCase()
   const instructionEchoes = [
     'brandon present/away',
     'brandon is present, moving',
@@ -219,6 +219,21 @@ function cleanModelObservation(note: string, fallback: string) {
     'black leather chair',
     'living room with a fan',
   ]
+  const usefulSignals = [
+    'holding',
+    'standing',
+    'walking',
+    'entered',
+    'left',
+    'dog',
+    'cat',
+    'animal',
+    'phone',
+    'remote',
+    'mug',
+    'spray bottle',
+    'object',
+  ]
   const genericStableCaptions = [
     'a man sitting in a chair in a room',
     'a man sitting in a chair in a living room',
@@ -227,11 +242,28 @@ function cleanModelObservation(note: string, fallback: string) {
   if (instructionEchoes.some((phrase) => normalized.includes(phrase))) {
     return `${fallback} Model echoed the observation prompt, so KIM logged this as a numeric notice instead.`
   }
-  if (lowValueOrRisky.some((phrase) => normalized.includes(phrase))) {
-    return `${fallback} Model returned a low-confidence detail, so KIM kept this as a numeric notice instead.`
-  }
   if (genericStableCaptions.some((phrase) => normalized === phrase || normalized === `${phrase}.`)) {
-    return `${fallback} Model returned a generic room caption, so KIM kept this as a numeric notice instead.`
+    return `${fallback} Model saw no distinct new action beyond stable seated presence.`
+  }
+  if (lowValueOrRisky.some((phrase) => normalized.includes(phrase))) {
+    const stripped = cleaned
+      .replace(/\s+in a blue shirt and tie/gi, '')
+      .replace(/\s+in a blue shirt/gi, '')
+      .replace(/\s+wearing a blue shirt/gi, '')
+      .replace(/\s+with a sunset in the background/gi, '')
+      .replace(/\s+with a fan on (his|her|their) head/gi, '')
+      .replace(/\s+and looking surprised/gi, '')
+      .replace(/\s+with a surprised expression/gi, '')
+      .replace(/\s+in a living room with a fan/gi, '')
+      .replace(/\s+in a living room\.?$/i, '.')
+      .replace(/\s+in a room\.?$/i, '.')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+
+    if (usefulSignals.some((phrase) => stripped.toLowerCase().includes(phrase))) {
+      return stripped || `${fallback} Model saw movement, but the fine detail was uncertain.`
+    }
+    return `${fallback} Model saw movement, but the fine detail was uncertain.`
   }
   return (cleaned || note)
     .replace(/\s+in a living room\.?$/i, '.')

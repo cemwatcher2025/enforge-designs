@@ -156,6 +156,7 @@ Status:
 - KIM Vision trains the numeric baseline only from routine checks; triggered motion/light events update last-seen and last-observation data but do not teach KIM that high-motion moments are normal. This keeps spikes such as standing up or camera movement from poisoning the usual-motion baseline.
 - KIM Vision only lets calm/stable frames train the usual-motion baseline. Moderate routine movement can still be logged, but it is not allowed to gradually redefine the room's normal motion level upward.
 - KIM Vision uses a field-note style observation prompt and cleans obvious model prompt echoes before saving deep observations, so instruction fragments do not pollute the memory log. Clothing, facial expressions, stable room descriptions, and known low-confidence details are downgraded to numeric notices unless unmistakable.
+- KIM Vision now keeps useful action from partially shaky model captions. If Moondream mentions an uncertain detail such as clothing or expression but also detects a real action or object, KIM strips the shaky part and logs the useful observation instead of hiding the whole result behind a generic low-confidence notice.
 - Local frame stats include brightness and frame-to-frame motion.
 - Local Moondream2 assessment is the default mode. The first use downloads `Xenova/moondream2` from Hugging Face and runs it in the browser with WebGPU through `@huggingface/transformers`.
 - Local mode does not send snapshots to the Replit proxy or a paid vision API. It only downloads/cache-loads model files from Hugging Face.
