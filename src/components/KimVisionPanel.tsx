@@ -159,6 +159,16 @@ function prependAssessment(current: VisionAssessment[], next: VisionAssessment) 
   return [next, ...current].slice(0, 40)
 }
 
+function updateVisionObservation(memory: VisionMemory, timestamp: string, deepObservation?: string) {
+  const nextMemory: VisionMemory = {
+    ...memory,
+    lastDeepObservation: deepObservation || memory.lastDeepObservation,
+    lastSeenAt: timestamp,
+  }
+  window.localStorage.setItem(visionMemoryStorageKey, JSON.stringify(nextMemory))
+  return nextMemory
+}
+
 function cleanModelObservation(note: string, fallback: string) {
   const cleaned = note
     .replace(/^the most useful current visual observation is that\s+/i, '')
@@ -177,8 +187,27 @@ function cleanModelObservation(note: string, fallback: string) {
     'visible activity or change',
     'prompt categories',
   ]
+  const lowValueOrRisky = [
+    'tie',
+    'surprised',
+    'sunset',
+    'blue shirt',
+    'black leather chair',
+    'living room with a fan',
+  ]
+  const genericStableCaptions = [
+    'a man sitting in a chair in a room',
+    'a man sitting in a chair in a living room',
+    'a man is sitting in a chair in a room',
+  ]
   if (instructionEchoes.some((phrase) => normalized.includes(phrase))) {
     return `${fallback} Model echoed the observation prompt, so KIM logged this as a numeric notice instead.`
+  }
+  if (lowValueOrRisky.some((phrase) => normalized.includes(phrase))) {
+    return `${fallback} Model returned a low-confidence detail, so KIM kept this as a numeric notice instead.`
+  }
+  if (genericStableCaptions.some((phrase) => normalized === phrase || normalized === `${phrase}.`)) {
+    return `${fallback} Model returned a generic room caption, so KIM kept this as a numeric notice instead.`
   }
   return cleaned || note
 }
@@ -379,7 +408,7 @@ export function KimVisionPanel() {
       }
 
       lastAssessmentAtRef.current = now
-      const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp, runDeepAssessment ? note : undefined)
+      const nextMemory = updateVisionObservation(memoryRef.current, timestamp, runDeepAssessment ? note : undefined)
       memoryRef.current = nextMemory
       setAssessments((current) => prependAssessment(current, {
         brightness,
