@@ -47,7 +47,7 @@ const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
 const defaultGpuEndpoint = 'http://127.0.0.1:8765'
 const baselineWarmupSamples = 8
 const baselineAdaptRate = 0.12
-const defaultFrameInterval = 240
+const defaultFrameInterval = 900
 const defaultCooldownSeconds = 45
 const strongMotionCooldownSeconds = 22
 const sustainedMotionCooldownSeconds = 14
@@ -152,7 +152,8 @@ function baselineSignal(memory: VisionMemory, brightness: number, motion: number
 function loadFrameInterval() {
   const saved = Number(window.localStorage.getItem(frameIntervalStorageKey) || defaultFrameInterval)
   if (!Number.isFinite(saved) || saved <= 0) return defaultFrameInterval
-  return Math.min(saved, defaultFrameInterval)
+  if (saved === 240) return defaultFrameInterval
+  return saved
 }
 
 function loadCooldownSeconds() {
