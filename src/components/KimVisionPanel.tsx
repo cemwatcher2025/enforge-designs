@@ -102,9 +102,14 @@ function updateVisionMemory(memory: VisionMemory, brightness: number, motion: nu
     if (shouldWarmUp) return ((current * memory.samples) + next) / samples
     return (current * (1 - baselineAdaptRate)) + (next * baselineAdaptRate)
   }
+  const currentMotion = memory.averageMotion ?? motionValue
+  const stableMotionCeiling = Math.max(6, currentMotion + 2)
+  const motionForBaseline = shouldWarmUp || motionValue <= stableMotionCeiling
+    ? motionValue
+    : currentMotion
   const nextMemory: VisionMemory = {
     averageBrightness: Math.round(blend(memory.averageBrightness, brightness) * 10) / 10,
-    averageMotion: Math.round(blend(memory.averageMotion, motionValue) * 10) / 10,
+    averageMotion: Math.round(blend(memory.averageMotion, motionForBaseline) * 10) / 10,
     lastDeepObservation: deepObservation || memory.lastDeepObservation,
     lastSeenAt: timestamp,
     samples,
@@ -188,6 +193,9 @@ function cleanModelObservation(note: string, fallback: string) {
     'prompt categories',
   ]
   const lowValueOrRisky = [
+    'fan on his head',
+    'fan on her head',
+    'fan on the head',
     'tie',
     'surprised',
     'sunset',
@@ -209,7 +217,10 @@ function cleanModelObservation(note: string, fallback: string) {
   if (genericStableCaptions.some((phrase) => normalized === phrase || normalized === `${phrase}.`)) {
     return `${fallback} Model returned a generic room caption, so KIM kept this as a numeric notice instead.`
   }
-  return cleaned || note
+  return (cleaned || note)
+    .replace(/\s+in a living room\.?$/i, '.')
+    .replace(/\s+in a room\.?$/i, '.')
+    .replace(/\s+with a room in the background\.?$/i, '.')
 }
 
 async function postVisionAssessment(endpoint: string, imageDataUrl: string, metadata: Record<string, unknown>) {
