@@ -177,7 +177,7 @@ function triggerFromSignals(
   return null
 }
 
-const assessmentPrompt = 'Report only the visible activity or change in one short natural sentence. Focus on people, animals, held objects, entering, leaving, standing, sitting, or large motion. Avoid clothing, facial expressions, and room descriptions unless they are unmistakable. Do not mention prompt categories or instructions. Do not identify private screen text.'
+const assessmentPrompt = 'Report only the visible activity or change in one short natural sentence. Focus on people, animals, held objects, entering, leaving, standing, sitting, or large motion. Avoid clothing, facial expressions, and room descriptions unless they are unmistakable. Avoid depth-direction claims such as in front of, behind, or next to; say visible near or also visible instead. Do not mention prompt categories or instructions. Do not identify private screen text.'
 
 function prependAssessment(current: VisionAssessment[], next: VisionAssessment) {
   return [next, ...current].slice(0, 40)
@@ -197,6 +197,13 @@ function cleanModelObservation(note: string, fallback: string) {
   const cleaned = note
     .replace(/^the most useful current visual observation is that\s+/i, '')
     .replace(/^the most useful observation is that\s+/i, '')
+    .replace(/\s+(is|are)\s+in front of\s+(him|her|them|the man|the person)/gi, ' is visible near the person')
+    .replace(/\s+(is|are)\s+behind\s+(him|her|them|the man|the person)/gi, ' is also visible')
+    .replace(/\s+(is|are)\s+next to\s+(him|her|them|the man|the person)/gi, ' is visible near the person')
+    .replace(/\s+in front of\s+(him|her|them|the man|the person)/gi, ' near the person')
+    .replace(/\s+behind\s+(him|her|them|the man|the person)/gi, ' also visible')
+    .replace(/\s+next to\s+(him|her|them|the man|the person)/gi, ' near the person')
+    .replace(/\s+in front of the camera/gi, ' visible to the camera')
     .trim()
   const normalized = cleaned.toLowerCase()
   const instructionEchoes = [
