@@ -31,6 +31,16 @@ type BaselineSignal = {
   ready: boolean
 }
 
+type BufferedVisionFrame = {
+  brightness: number
+  height: number
+  imageDataUrl: string
+  motion: number | null
+  timestamp: string
+  timeMs: number
+  width: number
+}
+
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
 const gpuEndpointStorageKey = 'enforge-kim-vision-gpu-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
@@ -53,6 +63,8 @@ const defaultCooldownSeconds = 45
 const strongMotionCooldownSeconds = 22
 const sustainedMotionCooldownSeconds = 14
 const motionProbeFrames = 30
+const bufferedFrameWindowMs = 3000
+const bufferedMotionFloor = 5
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -195,6 +207,14 @@ function formatDuration(durationMs?: number) {
   if (durationMs == null) return null
   if (durationMs < 1000) return `${durationMs}ms`
   return `${(durationMs / 1000).toFixed(1)}s`
+}
+
+function selectBufferedMotionFrame(frames: BufferedVisionFrame[], now: number) {
+  return frames.find((frame) => (
+    now - frame.timeMs <= bufferedFrameWindowMs
+    && frame.motion != null
+    && frame.motion >= bufferedMotionFloor
+  )) || null
 }
 
 function updateVisionObservation(memory: VisionMemory, timestamp: string, deepObservation?: string) {
@@ -341,6 +361,7 @@ export function KimVisionPanel() {
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const frameCountRef = useRef(0)
   const motionTrailRef = useRef(0)
+  const frameBufferRef = useRef<BufferedVisionFrame[]>([])
   const isSendingRef = useRef(false)
   const [enabled, setEnabled] = useState(false)
   const [frameInterval, setFrameInterval] = useState(loadFrameInterval)
@@ -415,6 +436,18 @@ export function KimVisionPanel() {
       let note = localNote(brightness, motion)
       const imageDataUrl = canvas.toDataURL('image/jpeg', 0.68)
       const now = Date.now()
+      const currentFrame: BufferedVisionFrame = {
+        brightness,
+        height,
+        imageDataUrl,
+        motion,
+        timestamp,
+        timeMs: now,
+        width,
+      }
+      frameBufferRef.current = [...frameBufferRef.current, currentFrame]
+        .filter((frame) => now - frame.timeMs <= bufferedFrameWindowMs)
+        .slice(-12)
       const cooldownOpen = now - lastAssessmentAtRef.current >= cooldownSeconds * 1000
       const signal = baselineSignal(memoryRef.current, brightness, motion, brightnessDelta)
       const meaningfulMotion = motion != null && motion >= motionThreshold
@@ -461,71 +494,77 @@ export function KimVisionPanel() {
       const assessmentTrigger = triggerReason
         || (sustainedLearnedMotion && motion != null ? `sustained motion ${motion}%` : trigger)
       motionTrailRef.current = 0
+      const bufferedFrame = forceAssessment ? null : selectBufferedMotionFrame(frameBufferRef.current, now)
+      const assessmentFrame = bufferedFrame || currentFrame
+      const frameSource = bufferedFrame && bufferedFrame !== currentFrame ? 'motion-start snapshot' : 'trigger snapshot'
+      note = localNote(assessmentFrame.brightness, assessmentFrame.motion)
       const runDeepAssessment = forceAssessment || deepAutoEnabled
       if (runDeepAssessment) {
         isSendingRef.current = true
         setIsSending(true)
-        setStatus(`Frame captured; assessing frozen snapshot for ${assessmentTrigger}.`)
+        setStatus(`Frame captured; assessing ${frameSource} for ${assessmentTrigger}.`)
       }
 
       if (!runDeepAssessment) {
         note = signal.ready && learnedChange
-          ? `Learned-baseline change noticed: ${assessmentTrigger}. ${localNote(brightness, motion)} Usual light ${memoryRef.current.averageBrightness ?? brightness}%, usual motion ${memoryRef.current.averageMotion ?? 0}%. Deep assessment skipped to keep the dashboard responsive.`
-          : `Change noticed: ${assessmentTrigger}. ${localNote(brightness, motion)} Deep assessment skipped to keep the dashboard responsive.`
+          ? `Learned-baseline change noticed: ${assessmentTrigger}. ${localNote(assessmentFrame.brightness, assessmentFrame.motion)} Usual light ${memoryRef.current.averageBrightness ?? brightness}%, usual motion ${memoryRef.current.averageMotion ?? 0}%. Deep assessment skipped to keep the dashboard responsive.`
+          : `Change noticed: ${assessmentTrigger}. ${localNote(assessmentFrame.brightness, assessmentFrame.motion)} Deep assessment skipped to keep the dashboard responsive.`
       }
 
       if (runDeepAssessment && visionMode === 'gpuServer') {
         try {
-          note = await postGpuServerAssessment(gpuEndpoint.trim() || defaultGpuEndpoint, imageDataUrl, {
-            brightness,
+          note = await postGpuServerAssessment(gpuEndpoint.trim() || defaultGpuEndpoint, assessmentFrame.imageDataUrl, {
+            brightness: assessmentFrame.brightness,
             frameCount: frameCountRef.current,
-            height,
-            motion,
-            timestamp,
-            width,
+            frameSource,
+            height: assessmentFrame.height,
+            motion: assessmentFrame.motion,
+            timestamp: assessmentFrame.timestamp,
+            width: assessmentFrame.width,
           })
-          note = cleanModelObservation(note, localNote(brightness, motion))
+          note = cleanModelObservation(note, localNote(assessmentFrame.brightness, assessmentFrame.motion))
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Local GPU server failed.'
-          note = `${localNote(brightness, motion)} Local GPU server unavailable: ${message}`
+          note = `${localNote(assessmentFrame.brightness, assessmentFrame.motion)} Local GPU server unavailable: ${message}`
         }
       }
 
       if (runDeepAssessment && visionMode === 'moondream') {
         try {
-          note = await assessWithMoondream(imageDataUrl, assessmentPrompt, modelId.trim() || defaultMoondreamModelId, setModelStatus)
-          note = cleanModelObservation(note, localNote(brightness, motion))
+          note = await assessWithMoondream(assessmentFrame.imageDataUrl, assessmentPrompt, modelId.trim() || defaultMoondreamModelId, setModelStatus)
+          note = cleanModelObservation(note, localNote(assessmentFrame.brightness, assessmentFrame.motion))
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Local Moondream failed.'
           setModelStatus({ detail: message, stage: 'error' })
-          note = `${localNote(brightness, motion)} Local Moondream was unavailable: ${message}`
+          note = `${localNote(assessmentFrame.brightness, assessmentFrame.motion)} Local Moondream was unavailable: ${message}`
         }
       }
 
       if (runDeepAssessment && visionMode === 'proxy' && endpoint.trim()) {
-        note = await postVisionAssessment(endpoint.trim(), imageDataUrl, {
-          brightness,
+        note = await postVisionAssessment(endpoint.trim(), assessmentFrame.imageDataUrl, {
+          brightness: assessmentFrame.brightness,
           frameCount: frameCountRef.current,
-          height,
-          motion,
-          timestamp,
-          width,
+          frameSource,
+          height: assessmentFrame.height,
+          motion: assessmentFrame.motion,
+          timestamp: assessmentFrame.timestamp,
+          width: assessmentFrame.width,
         })
-        note = cleanModelObservation(note, localNote(brightness, motion))
+        note = cleanModelObservation(note, localNote(assessmentFrame.brightness, assessmentFrame.motion))
       }
 
       lastAssessmentAtRef.current = now
-      const nextMemory = updateVisionObservation(memoryRef.current, timestamp, runDeepAssessment ? note : undefined)
+      const nextMemory = updateVisionObservation(memoryRef.current, assessmentFrame.timestamp, runDeepAssessment ? note : undefined)
       memoryRef.current = nextMemory
       setAssessments((current) => prependAssessment(current, {
-        brightness,
+        brightness: assessmentFrame.brightness,
         durationMs: Date.now() - now,
         kind: runDeepAssessment ? 'observation' : 'notice',
         mode: visionMode,
-        motion,
+        motion: assessmentFrame.motion,
         note,
-        timestamp,
-        trigger: assessmentTrigger,
+        timestamp: assessmentFrame.timestamp,
+        trigger: bufferedFrame && bufferedFrame !== currentFrame ? `${assessmentTrigger} · buffered` : assessmentTrigger,
       }))
       setStatus(visionMode === 'moondream'
         ? runDeepAssessment ? `Local Moondream pass complete: ${assessmentTrigger}.` : `Change logged without deep model: ${assessmentTrigger}.`
