@@ -291,6 +291,9 @@ function cleanModelObservation(note: string, fallback: string) {
   }
   if (lowValueOrRisky.some((phrase) => normalized.includes(phrase))) {
     const stripped = cleaned
+      .replace(/^a man and tie is\s+/i, 'A man is ')
+      .replace(/^a person and tie is\s+/i, 'A person is ')
+      .replace(/\s+and tie\s+/gi, ' ')
       .replace(/\s+in a blue shirt and tie/gi, '')
       .replace(/\s+in a blue shirt/gi, '')
       .replace(/\s+wearing a blue shirt/gi, '')
