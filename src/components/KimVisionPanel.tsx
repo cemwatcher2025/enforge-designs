@@ -7,7 +7,7 @@ type VisionMode = 'gpuServer' | 'moondream' | 'proxy' | 'stats'
 type VisionAssessment = {
   brightness: number
   durationMs?: number
-  kind?: 'check' | 'observation' | 'notice' | 'error'
+  kind?: 'check' | 'event' | 'observation' | 'notice' | 'error'
   mode: VisionMode
   motion: number | null
   note: string
@@ -41,6 +41,26 @@ type BufferedVisionFrame = {
   width: number
 }
 
+type MotionRegion = 'none' | 'left' | 'center' | 'right' | 'upper' | 'lower' | 'wide'
+
+type SceneEvent = {
+  detail: string
+  motion: number | null
+  region: MotionRegion
+  timestamp: string
+  type: 'entered' | 'left' | 'motion' | 'object' | 'presence' | 'settled' | 'unknown'
+}
+
+type SceneMemory = {
+  activity: 'idle' | 'moving' | 'object_in_hand' | 'standing' | 'sitting' | 'unknown'
+  confidence: number
+  entities: string[]
+  lastEventAt: string | null
+  motionRegion: MotionRegion
+  presence: 'present' | 'away' | 'uncertain'
+  summary: string
+}
+
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
 const gpuEndpointStorageKey = 'enforge-kim-vision-gpu-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
@@ -51,6 +71,8 @@ const cooldownStorageKey = 'enforge-kim-vision-cooldown'
 const deepAutoStorageKey = 'enforge-kim-vision-deep-auto'
 const assessmentLogStorageKey = 'enforge-kim-vision-assessments'
 const visionMemoryStorageKey = 'enforge-kim-vision-memory'
+const sceneMemoryStorageKey = 'enforge-kim-scene-memory-v2'
+const sceneEventsStorageKey = 'enforge-kim-scene-events-v2'
 const defaultVisionEndpoint = import.meta.env.VITE_KIM_VISION_ENDPOINT
   || (import.meta.env.VITE_COMMAND_CENTER_PROXY_URL
     ? `${String(import.meta.env.VITE_COMMAND_CENTER_PROXY_URL).replace(/\/$/, '')}/api/kim/vision`
@@ -62,9 +84,10 @@ const defaultFrameInterval = 900
 const defaultCooldownSeconds = 45
 const strongMotionCooldownSeconds = 22
 const sustainedMotionCooldownSeconds = 14
-const motionProbeFrames = 30
+const motionProbeFrames = 10
 const bufferedFrameWindowMs = 3000
 const bufferedMotionFloor = 5
+const sceneEventCooldownMs = 2500
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -87,6 +110,39 @@ function frameDelta(current: Uint8ClampedArray, previous: Uint8ClampedArray | nu
   return Math.round((total / (current.length / 4 / stride) / 765) * 100)
 }
 
+function motionRegion(current: Uint8ClampedArray, previous: Uint8ClampedArray | null, width: number, height: number): MotionRegion {
+  if (!previous) return 'none'
+  const zones = { center: 0, left: 0, lower: 0, right: 0, upper: 0 }
+  const stride = 12
+  let samples = 0
+  for (let y = 0; y < height; y += stride) {
+    for (let x = 0; x < width; x += stride) {
+      const index = (y * width + x) * 4
+      const delta = Math.abs(current[index] - previous[index])
+        + Math.abs(current[index + 1] - previous[index + 1])
+        + Math.abs(current[index + 2] - previous[index + 2])
+      if (delta < 42) continue
+      samples += 1
+      if (x < width * 0.33) zones.left += 1
+      else if (x > width * 0.66) zones.right += 1
+      else zones.center += 1
+      if (y < height * 0.45) zones.upper += 1
+      if (y > height * 0.55) zones.lower += 1
+    }
+  }
+  if (samples < 3) return 'none'
+  const horizontal = [
+    ['left', zones.left],
+    ['center', zones.center],
+    ['right', zones.right],
+  ] as const
+  const strongestHorizontal = horizontal.reduce((best, next) => next[1] > best[1] ? next : best)
+  if (zones.upper > samples * 0.58) return 'upper'
+  if (zones.lower > samples * 0.58) return 'lower'
+  if (strongestHorizontal[1] < samples * 0.46) return 'wide'
+  return strongestHorizontal[0]
+}
+
 function localNote(brightness: number, motion: number | null) {
   const light = brightness > 68 ? 'bright' : brightness < 28 ? 'dim' : 'balanced'
   const movement = motion == null ? 'baseline frame captured' : motion > 18 ? 'noticeable motion' : motion > 6 ? 'light movement' : 'mostly steady'
@@ -100,6 +156,36 @@ function defaultVisionMemory(): VisionMemory {
     lastDeepObservation: null,
     lastSeenAt: null,
     samples: 0,
+  }
+}
+
+function defaultSceneMemory(): SceneMemory {
+  return {
+    activity: 'unknown',
+    confidence: 0,
+    entities: [],
+    lastEventAt: null,
+    motionRegion: 'none',
+    presence: 'uncertain',
+    summary: 'Learning the room.',
+  }
+}
+
+function loadSceneMemory() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(sceneMemoryStorageKey) || 'null') as SceneMemory | null
+    return parsed && Array.isArray(parsed.entities) ? parsed : defaultSceneMemory()
+  } catch {
+    return defaultSceneMemory()
+  }
+}
+
+function loadSceneEvents() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(sceneEventsStorageKey) || '[]') as SceneEvent[]
+    return Array.isArray(parsed) ? parsed.slice(0, 12) : []
+  } catch {
+    return []
   }
 }
 
@@ -142,6 +228,41 @@ function quietCheckNote(brightness: number, motion: number | null, memory: Visio
     ? `KIM is learning the room baseline (${memory.samples}/${baselineWarmupSamples} samples).`
     : `Baseline learned: usual light ${memory.averageBrightness ?? brightness}%, usual motion ${memory.averageMotion ?? 0}%.`
   return `Check logged: ${localNote(brightness, motion)} ${memoryText}`
+}
+
+function addUniqueEntity(entities: string[], entity: string) {
+  return entities.includes(entity) ? entities : [entity, ...entities].slice(0, 8)
+}
+
+function sceneMemoryFromObservation(memory: SceneMemory, note: string, timestamp: string, region: MotionRegion): SceneMemory {
+  const normalized = note.toLowerCase()
+  let next = { ...memory, lastEventAt: timestamp, motionRegion: region }
+  if (/\b(person|man|brandon)\b/.test(normalized)) {
+    next = { ...next, confidence: Math.max(next.confidence, 68), presence: 'present' }
+  }
+  if (/\b(empty chair|chair is empty|no person|away)\b/.test(normalized)) {
+    next = { ...next, activity: 'unknown', confidence: Math.max(next.confidence, 60), presence: 'away' }
+  }
+  if (/\bstanding|stands|stood\b/.test(normalized)) next = { ...next, activity: 'standing', confidence: Math.max(next.confidence, 74), presence: 'present' }
+  if (/\bsitting|sits|seated\b/.test(normalized)) next = { ...next, activity: 'sitting', confidence: Math.max(next.confidence, 72), presence: 'present' }
+  if (/\bholding|hand|phone|remote|object|figurine|toothbrush|bottle|cup|mug\b/.test(normalized)) next = { ...next, activity: 'object_in_hand', confidence: Math.max(next.confidence, 76), presence: 'present' }
+  if (/\bdog\b/.test(normalized)) next = { ...next, entities: addUniqueEntity(next.entities, 'dog') }
+  if (/\bfan\b/.test(normalized)) next = { ...next, entities: addUniqueEntity(next.entities, 'fan') }
+  if (/\bphone|remote|object|figurine|toothbrush|bottle|cup|mug\b/.test(normalized)) next = { ...next, entities: addUniqueEntity(next.entities, 'held object') }
+  next.summary = summarizeScene(next)
+  window.localStorage.setItem(sceneMemoryStorageKey, JSON.stringify(next))
+  return next
+}
+
+function summarizeScene(memory: SceneMemory) {
+  const presence = memory.presence === 'present' ? 'Person present' : memory.presence === 'away' ? 'Person away' : 'Presence uncertain'
+  const activity = memory.activity === 'object_in_hand'
+    ? 'object in hand'
+    : memory.activity === 'unknown'
+      ? 'watching for context'
+      : memory.activity
+  const entities = memory.entities.length ? `; known: ${memory.entities.join(', ')}` : ''
+  return `${presence}; ${activity}; motion ${memory.motionRegion}${entities}.`
 }
 
 function baselineSignal(memory: VisionMemory, brightness: number, motion: number | null, brightnessDelta: number): BaselineSignal {
@@ -361,7 +482,9 @@ export function KimVisionPanel() {
   const previousFrameRef = useRef<Uint8ClampedArray | null>(null)
   const lastBrightnessRef = useRef<number | null>(null)
   const lastAssessmentAtRef = useRef(0)
+  const lastSceneEventAtRef = useRef(0)
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
+  const sceneMemoryRef = useRef<SceneMemory>(defaultSceneMemory())
   const frameCountRef = useRef(0)
   const motionTrailRef = useRef(0)
   const frameBufferRef = useRef<BufferedVisionFrame[]>([])
@@ -381,6 +504,8 @@ export function KimVisionPanel() {
   const [isSending, setIsSending] = useState(false)
   const [status, setStatus] = useState('Waiting for camera.')
   const [gpuServerStatus, setGpuServerStatus] = useState('Not checked.')
+  const [sceneMemory, setSceneMemory] = useState<SceneMemory>(loadSceneMemory)
+  const [sceneEvents, setSceneEvents] = useState<SceneEvent[]>(loadSceneEvents)
   const [modelStatus, setModelStatus] = useState<MoondreamStatus>({
     detail: hasBrowserMoondreamSupport()
       ? 'Local Moondream is available. First analysis downloads the model from Hugging Face.'
@@ -400,6 +525,45 @@ export function KimVisionPanel() {
     : enabled
       ? `KIM is probing motion every ${motionProbeFrames} frames and logging routine checks every ${frameInterval.toLocaleString()} frames.`
       : status
+
+  const addSceneEvent = useCallback((event: SceneEvent, options: { logFeed?: boolean } = {}) => {
+    lastSceneEventAtRef.current = Date.now()
+    setSceneEvents((current) => {
+      const next = [event, ...current].slice(0, 12)
+      window.localStorage.setItem(sceneEventsStorageKey, JSON.stringify(next))
+      return next
+    })
+    const nextMemory: SceneMemory = {
+      ...sceneMemoryRef.current,
+      activity: event.type === 'settled'
+        ? 'idle'
+        : event.type === 'object'
+          ? 'object_in_hand'
+          : event.type === 'motion'
+            ? 'moving'
+            : sceneMemoryRef.current.activity,
+      confidence: Math.max(sceneMemoryRef.current.confidence, event.type === 'settled' ? 54 : 62),
+      lastEventAt: event.timestamp,
+      motionRegion: event.region,
+      presence: event.type === 'left' ? 'away' : event.type === 'entered' || event.type === 'presence' ? 'present' : sceneMemoryRef.current.presence,
+    }
+    nextMemory.summary = summarizeScene(nextMemory)
+    sceneMemoryRef.current = nextMemory
+    setSceneMemory(nextMemory)
+    window.localStorage.setItem(sceneMemoryStorageKey, JSON.stringify(nextMemory))
+
+    if (options.logFeed) {
+      setAssessments((current) => prependAssessment(current, {
+        brightness: 0,
+        kind: 'event',
+        mode: visionMode,
+        motion: event.motion,
+        note: event.detail,
+        timestamp: event.timestamp,
+        trigger: `sensor ${event.type}`,
+      }))
+    }
+  }, [visionMode])
 
   const refreshGpuServerHealth = useCallback(async () => {
     setGpuServerStatus('Checking local GPU server...')
@@ -431,7 +595,9 @@ export function KimVisionPanel() {
       context.drawImage(video, 0, 0, width, height)
       const image = context.getImageData(0, 0, width, height)
       const brightness = averageBrightness(image.data)
-      const motion = frameDelta(image.data, previousFrameRef.current)
+      const previousFrame = previousFrameRef.current
+      const motion = frameDelta(image.data, previousFrame)
+      const region = motionRegion(image.data, previousFrame, width, height)
       previousFrameRef.current = new Uint8ClampedArray(image.data)
       const brightnessDelta = lastBrightnessRef.current == null ? 0 : Math.abs(brightness - lastBrightnessRef.current)
       lastBrightnessRef.current = brightness
@@ -462,6 +628,34 @@ export function KimVisionPanel() {
       motionTrailRef.current = mildLearnedMotion
         ? Math.min(motionTrailRef.current + 1, 4)
         : Math.max(motionTrailRef.current - 1, 0)
+      const sceneEventOpen = now - lastSceneEventAtRef.current >= sceneEventCooldownMs
+      if (!forceAssessment && sceneEventOpen && motion != null) {
+        if (motion >= 18 || (signal.ready && signal.motionDelta >= 7)) {
+          addSceneEvent({
+            detail: `Real-time sensor: strong movement detected in the ${region} region.`,
+            motion,
+            region,
+            timestamp,
+            type: 'motion',
+          }, { logFeed: true })
+        } else if (motionTrailRef.current === 2) {
+          addSceneEvent({
+            detail: `Real-time sensor: sustained mild movement is building in the ${region} region.`,
+            motion,
+            region,
+            timestamp,
+            type: 'motion',
+          })
+        } else if (sceneMemoryRef.current.activity === 'moving' && motion <= 2) {
+          addSceneEvent({
+            detail: 'Real-time sensor: movement settled back to baseline.',
+            motion,
+            region,
+            timestamp,
+            type: 'settled',
+          })
+        }
+      }
       const sustainedLearnedMotion = signal.ready && motionTrailRef.current >= 2
       const strongLearnedMotion = signal.ready
         && motion != null
@@ -559,6 +753,18 @@ export function KimVisionPanel() {
       lastAssessmentAtRef.current = now
       const nextMemory = updateVisionObservation(memoryRef.current, assessmentFrame.timestamp, runDeepAssessment ? note : undefined)
       memoryRef.current = nextMemory
+      if (runDeepAssessment) {
+        const nextSceneMemory = sceneMemoryFromObservation(sceneMemoryRef.current, note, assessmentFrame.timestamp, region)
+        sceneMemoryRef.current = nextSceneMemory
+        setSceneMemory(nextSceneMemory)
+        addSceneEvent({
+          detail: `Scene memory updated: ${nextSceneMemory.summary}`,
+          motion: assessmentFrame.motion,
+          region,
+          timestamp: assessmentFrame.timestamp,
+          type: nextSceneMemory.activity === 'object_in_hand' ? 'object' : 'presence',
+        })
+      }
       setAssessments((current) => prependAssessment(current, {
         brightness: assessmentFrame.brightness,
         durationMs: Date.now() - now,
@@ -582,7 +788,7 @@ export function KimVisionPanel() {
       isSendingRef.current = false
       setIsSending(false)
     }
-  }, [cooldownSeconds, deepAutoEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, visionMode])
+  }, [addSceneEvent, cooldownSeconds, deepAutoEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
@@ -623,6 +829,10 @@ export function KimVisionPanel() {
   useEffect(() => {
     window.localStorage.setItem(assessmentLogStorageKey, JSON.stringify(assessments))
   }, [assessments])
+
+  useEffect(() => {
+    sceneMemoryRef.current = sceneMemory
+  }, [sceneMemory])
 
   useEffect(() => {
     if (!enabled || !isActive) return undefined
@@ -790,6 +1000,30 @@ export function KimVisionPanel() {
             : 'No image leaves the browser; only brightness and motion are computed.'}</span>
       </div>
 
+      <div className="kim-scene-awareness">
+        <div>
+          <p className="eyebrow">Situational Awareness V2</p>
+          <strong>{sceneMemory.summary}</strong>
+          <span>Confidence {sceneMemory.confidence}% · Last motion region {sceneMemory.motionRegion}</span>
+        </div>
+        <div className="kim-scene-metrics">
+          <span data-state={sceneMemory.presence}>{sceneMemory.presence}</span>
+          <span>{sceneMemory.activity.replace(/_/g, ' ')}</span>
+          <span>{sceneMemory.entities.length ? sceneMemory.entities.join(', ') : 'learning entities'}</span>
+        </div>
+        <div className="kim-scene-events">
+          {sceneEvents.length === 0 ? (
+            <span>No sensor events yet.</span>
+          ) : sceneEvents.slice(0, 4).map((event) => (
+            <span key={`${event.timestamp}-${event.detail}`}>
+              {new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(event.timestamp))}
+              {' · '}
+              {event.detail}
+            </span>
+          ))}
+        </div>
+      </div>
+
       <div className="kim-vision-feed">
         {assessments.length === 0 ? (
           <p>No assessments yet. Start the camera, enable analysis, or click Analyze now.</p>
@@ -803,7 +1037,9 @@ export function KimVisionPanel() {
               {visionModeLabel(assessment.mode)}
               {formatDuration(assessment.durationMs) ? ` · ${formatDuration(assessment.durationMs)}` : ''}
               {' · '}
-              Light {assessment.brightness}% · Motion {assessment.motion == null ? 'baseline' : `${assessment.motion}%`}
+              {assessment.kind === 'event' ? 'Sensor event' : `Light ${assessment.brightness}%`}
+              {' · '}
+              Motion {assessment.motion == null ? 'baseline' : `${assessment.motion}%`}
             </span>
           </div>
         ))}

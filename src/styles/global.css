@@ -937,6 +937,68 @@ h2 {
   background: rgba(255, 59, 102, 0.08);
 }
 
+.kim-scene-awareness {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background:
+    linear-gradient(135deg, rgba(0, 229, 255, 0.12), rgba(255, 47, 179, 0.06)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.kim-scene-awareness strong,
+.kim-scene-awareness span {
+  display: block;
+}
+
+.kim-scene-awareness strong {
+  margin-top: 4px;
+  color: #f3f7ff;
+  line-height: 1.35;
+}
+
+.kim-scene-awareness > div > span,
+.kim-scene-events span {
+  color: #a9b8d7;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.kim-scene-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kim-scene-metrics span {
+  min-height: 34px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+  color: #00e5ff;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.kim-scene-metrics span[data-state="present"] {
+  border-color: rgba(64, 255, 106, 0.42);
+  color: #40ff6a;
+}
+
+.kim-scene-metrics span[data-state="away"] {
+  border-color: rgba(255, 59, 102, 0.42);
+  color: #ff3b66;
+}
+
+.kim-scene-events {
+  display: grid;
+  gap: 6px;
+  max-height: 92px;
+  overflow: auto;
+}
+
 .kim-vision-feed {
   display: grid;
   gap: 10px;
@@ -963,6 +1025,11 @@ h2 {
 
 .kim-vision-feed div[data-kind="observation"] {
   border-left: 2px solid #00e5ff;
+}
+
+.kim-vision-feed div[data-kind="event"] {
+  border-left: 2px solid #40ff6a;
+  background: rgba(64, 255, 106, 0.08);
 }
 
 .kim-vision-feed strong {
