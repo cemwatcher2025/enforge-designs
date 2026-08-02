@@ -1005,6 +1005,51 @@ h2 {
   text-transform: uppercase;
 }
 
+.kim-debug-export {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 47, 179, 0.24);
+  background: rgba(255, 47, 179, 0.055);
+}
+
+.kim-debug-export label {
+  display: grid;
+  gap: 8px;
+}
+
+.kim-debug-export label span {
+  color: #ff2fb3;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.kim-debug-export textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #05070d;
+  color: #f3f7ff;
+  font: inherit;
+  line-height: 1.45;
+  padding: 10px;
+}
+
+.kim-debug-export > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kim-debug-export p {
+  margin: 0;
+  color: #a9b8d7;
+  font-size: 12px;
+}
+
 .kim-vision-feed {
   display: grid;
   gap: 10px;
@@ -1216,6 +1261,7 @@ body[data-theme="light"] .active-project select,
 body[data-theme="light"] .document-search input,
 body[data-theme="light"] .camera-controls select,
 body[data-theme="light"] .kim-vision-controls input,
+body[data-theme="light"] .kim-debug-export textarea,
 body[data-theme="light"] .theme-toggle,
 body[data-theme="light"] .endpoint-row input,
 body[data-theme="light"] .editable-card input,

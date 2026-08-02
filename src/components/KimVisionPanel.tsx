@@ -67,6 +67,36 @@ type SceneMemoryEvidence = {
   motion: number | null
 }
 
+type KimVisionDebugPacket = {
+  assessments: VisionAssessment[]
+  camera: {
+    active: boolean
+    mirrored: boolean
+  }
+  detector: {
+    enabled: boolean
+    probeFrames: number
+    status: KimDetectorStatus
+  }
+  generatedAt: string
+  gpuServerStatus: string
+  modelStatus: MoondreamStatus
+  sceneEvents: SceneEvent[]
+  sceneMemory: SceneMemory
+  settings: {
+    cooldownSeconds: number
+    deepAutoEnabled: boolean
+    frameInterval: number
+    gpuEndpoint: string
+    modelId: string
+    motionProbeFrames: number
+    motionThreshold: number
+    visionMode: VisionMode
+  }
+  testNote: string
+  version: 1
+}
+
 function settleActivityFromMemory(activity: SceneMemory['activity']) {
   if (activity === 'standing' || activity === 'moving' || activity === 'object_in_hand') return 'sitting'
   return activity === 'unknown' ? 'idle' : activity
@@ -387,6 +417,10 @@ function assessmentKey(assessment: VisionAssessment, index: number) {
   ].join(':')
 }
 
+function debugPacketFilename(timestamp: string) {
+  return `kim-vision-debug-${timestamp.replace(/[:.]/g, '-').replace('T', '_').replace('Z', 'Z')}.json`
+}
+
 function visionModeLabel(mode: VisionMode) {
   if (mode === 'gpuServer') return 'GPU server'
   if (mode === 'moondream') return 'Browser model'
@@ -608,11 +642,87 @@ export function KimVisionPanel() {
       return []
     }
   })
+  const [debugNote, setDebugNote] = useState('')
+  const [debugStatus, setDebugStatus] = useState('No packet exported yet.')
   const effectiveStatus = !isActive
     ? 'Waiting for camera.'
     : enabled
       ? `KIM is probing motion every ${motionProbeFrames} frames and logging routine checks every ${frameInterval.toLocaleString()} frames.`
       : status
+
+  const buildDebugPacket = useCallback((noteOverride = debugNote): KimVisionDebugPacket => ({
+    assessments,
+    camera: {
+      active: isActive,
+      mirrored: isMirrored,
+    },
+    detector: {
+      enabled: detectorEnabled,
+      probeFrames: detectorProbeFrames,
+      status: detectorStatus,
+    },
+    generatedAt: new Date().toISOString(),
+    gpuServerStatus,
+    modelStatus,
+    sceneEvents,
+    sceneMemory,
+    settings: {
+      cooldownSeconds,
+      deepAutoEnabled,
+      frameInterval,
+      gpuEndpoint,
+      modelId,
+      motionProbeFrames,
+      motionThreshold,
+      visionMode,
+    },
+    testNote: noteOverride.trim() || 'No human truth note provided yet.',
+    version: 1,
+  }), [
+    assessments,
+    cooldownSeconds,
+    debugNote,
+    deepAutoEnabled,
+    detectorEnabled,
+    detectorStatus,
+    frameInterval,
+    gpuEndpoint,
+    gpuServerStatus,
+    isActive,
+    isMirrored,
+    modelId,
+    modelStatus,
+    motionThreshold,
+    sceneEvents,
+    sceneMemory,
+    visionMode,
+  ])
+
+  const copyDebugPacket = useCallback(async () => {
+    const packet = buildDebugPacket()
+    const packetText = JSON.stringify(packet, null, 2)
+    try {
+      await navigator.clipboard.writeText(packetText)
+      setDebugStatus(`Copied ${packet.sceneEvents.length} sensor events and ${packet.assessments.length} assessments.`)
+    } catch {
+      setDebugStatus('Clipboard copy failed. Use Download packet instead.')
+    }
+  }, [buildDebugPacket])
+
+  const downloadDebugPacket = useCallback(() => {
+    const packet = buildDebugPacket()
+    const packetText = JSON.stringify(packet, null, 2)
+    const blob = new Blob([packetText], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = debugPacketFilename(packet.generatedAt)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setDebugStatus(`Downloaded ${packet.sceneEvents.length} sensor events and ${packet.assessments.length} assessments.`)
+  }, [buildDebugPacket])
 
   const addSceneEvent = useCallback((event: SceneEvent, options: { logFeed?: boolean } = {}) => {
     const previousEvent = sceneEventsRef.current[0]
@@ -1210,6 +1320,24 @@ export function KimVisionPanel() {
             </>
           )}
         </div>
+      </div>
+
+      <div className="kim-debug-export">
+        <label htmlFor="kim-debug-note">
+          <span>Test note</span>
+          <textarea
+            id="kim-debug-note"
+            onChange={(event) => setDebugNote(event.target.value)}
+            placeholder="What actually happened? Example: I stood up slowly, left the chair empty, then came back holding a cup."
+            rows={3}
+            value={debugNote}
+          />
+        </label>
+        <div>
+          <button onClick={() => void copyDebugPacket()} type="button">Copy packet</button>
+          <button onClick={downloadDebugPacket} type="button">Download packet</button>
+        </div>
+        <p>{debugStatus}</p>
       </div>
 
       <div className="kim-vision-feed">
