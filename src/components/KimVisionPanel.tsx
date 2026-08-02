@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCamera } from '../context/cameraContext'
 import { assessWithMoondream, defaultMoondreamModelId, hasBrowserMoondreamSupport, loadMoondream, type MoondreamStatus } from '../utils/moondreamVision'
+import { detectKimObjects, loadKimObjectDetector, summarizeKimDetections, type KimDetection, type KimDetectorStatus } from '../utils/kimObjectDetector'
 
 type VisionMode = 'gpuServer' | 'moondream' | 'proxy' | 'stats'
 
@@ -48,7 +49,7 @@ type SceneEvent = {
   motion: number | null
   region: MotionRegion
   timestamp: string
-  type: 'entered' | 'left' | 'motion' | 'object' | 'presence' | 'settled' | 'unknown'
+  type: 'detector' | 'entered' | 'left' | 'motion' | 'object' | 'presence' | 'settled' | 'unknown'
 }
 
 type SceneMemory = {
@@ -79,6 +80,7 @@ const frameIntervalStorageKey = 'enforge-kim-vision-frame-interval'
 const motionThresholdStorageKey = 'enforge-kim-vision-motion-threshold'
 const cooldownStorageKey = 'enforge-kim-vision-cooldown'
 const deepAutoStorageKey = 'enforge-kim-vision-deep-auto'
+const detectorEnabledStorageKey = 'enforge-kim-detector-enabled'
 const assessmentLogStorageKey = 'enforge-kim-vision-assessments'
 const visionMemoryStorageKey = 'enforge-kim-vision-memory'
 const sceneMemoryStorageKey = 'enforge-kim-scene-memory-v2'
@@ -98,6 +100,8 @@ const motionProbeFrames = 10
 const bufferedFrameWindowMs = 3000
 const bufferedMotionFloor = 5
 const sceneEventCooldownMs = 2500
+const detectorProbeFrames = 45
+const detectorEventCooldownMs = 5000
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -286,6 +290,26 @@ function summarizeScene(memory: SceneMemory) {
       : memory.activity
   const entities = memory.entities.length ? `; known: ${memory.entities.join(', ')}` : ''
   return `${presence}; ${activity}; motion ${memory.motionRegion}${entities}.`
+}
+
+function sceneMemoryFromDetections(memory: SceneMemory, detections: KimDetection[], timestamp: string, region: MotionRegion): SceneMemory {
+  const summary = summarizeKimDetections(detections)
+  let next = { ...memory, lastEventAt: timestamp, motionRegion: region }
+  if (summary.personVisible) {
+    next = { ...next, confidence: Math.max(next.confidence, 78), presence: 'present' }
+  }
+  if (summary.dogVisible) {
+    next = { ...next, entities: addUniqueEntity(next.entities, 'dog') }
+  }
+  if (summary.heldObjectLikely) {
+    next = { ...next, activity: 'object_in_hand', confidence: Math.max(next.confidence, 82), presence: summary.personVisible ? 'present' : next.presence, entities: addUniqueEntity(next.entities, 'held object') }
+  }
+  if (summary.chairVisible) {
+    next = { ...next, entities: addUniqueEntity(next.entities, 'chair') }
+  }
+  next.summary = summarizeScene(next)
+  window.localStorage.setItem(sceneMemoryStorageKey, JSON.stringify(next))
+  return next
 }
 
 function baselineSignal(memory: VisionMemory, brightness: number, motion: number | null, brightnessDelta: number): BaselineSignal {
@@ -521,6 +545,7 @@ export function KimVisionPanel() {
   const previousFrameRef = useRef<Uint8ClampedArray | null>(null)
   const lastBrightnessRef = useRef<number | null>(null)
   const lastAssessmentAtRef = useRef(0)
+  const lastDetectorAtRef = useRef(0)
   const lastSceneEventAtRef = useRef(0)
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const sceneMemoryRef = useRef<SceneMemory>(defaultSceneMemory())
@@ -534,6 +559,7 @@ export function KimVisionPanel() {
   const [motionThreshold, setMotionThreshold] = useState(() => Number(window.localStorage.getItem(motionThresholdStorageKey) || 22))
   const [cooldownSeconds, setCooldownSeconds] = useState(loadCooldownSeconds)
   const [deepAutoEnabled, setDeepAutoEnabled] = useState(() => window.localStorage.getItem(deepAutoStorageKey) === 'true')
+  const [detectorEnabled, setDetectorEnabled] = useState(() => window.localStorage.getItem(detectorEnabledStorageKey) !== 'false')
   const [visionMode, setVisionMode] = useState<VisionMode>(() => {
     const saved = window.localStorage.getItem(visionModeStorageKey)
     return saved === 'gpuServer' || saved === 'proxy' || saved === 'stats' || saved === 'moondream' ? saved : 'moondream'
@@ -544,6 +570,10 @@ export function KimVisionPanel() {
   const [isSending, setIsSending] = useState(false)
   const [status, setStatus] = useState('Waiting for camera.')
   const [gpuServerStatus, setGpuServerStatus] = useState('Not checked.')
+  const [detectorStatus, setDetectorStatus] = useState<KimDetectorStatus>({
+    detail: 'Local detector loads on first use.',
+    stage: 'idle',
+  })
   const [sceneMemory, setSceneMemory] = useState<SceneMemory>(loadSceneMemory)
   const [sceneEvents, setSceneEvents] = useState<SceneEvent[]>(loadSceneEvents)
   const [modelStatus, setModelStatus] = useState<MoondreamStatus>({
@@ -712,6 +742,42 @@ export function KimVisionPanel() {
           })
         }
       }
+
+      const detectorOpen = now - lastDetectorAtRef.current >= detectorEventCooldownMs
+      const shouldRunDetector = detectorEnabled
+        && !forceAssessment
+        && detectorOpen
+        && (
+          (motion != null && motion >= 4)
+          || frameCountRef.current % detectorProbeFrames === 0
+        )
+      if (shouldRunDetector) {
+        lastDetectorAtRef.current = now
+        void detectKimObjects(canvas, setDetectorStatus)
+          .then((detections) => {
+            const detectionSummary = summarizeKimDetections(detections)
+            const labels = detectionSummary.labels.slice(0, 5)
+            const previousSceneSummary = sceneMemoryRef.current.summary
+            const nextSceneMemory = sceneMemoryFromDetections(sceneMemoryRef.current, detections, timestamp, region)
+            sceneMemoryRef.current = nextSceneMemory
+            setSceneMemory(nextSceneMemory)
+            if (labels.length && nextSceneMemory.summary !== previousSceneSummary) {
+              addSceneEvent({
+                detail: `Detector saw ${labels.join(', ')}.`,
+                motion,
+                region,
+                timestamp,
+                type: 'detector',
+              })
+            }
+          })
+          .catch((error: unknown) => {
+            setDetectorStatus({
+              detail: error instanceof Error ? error.message : 'Local detector failed.',
+              stage: 'error',
+            })
+          })
+      }
       const sustainedLearnedMotion = signal.ready && motionTrailRef.current >= 2
       const strongLearnedMotion = signal.ready
         && motion != null
@@ -858,7 +924,7 @@ export function KimVisionPanel() {
       isSendingRef.current = false
       setIsSending(false)
     }
-  }, [addSceneEvent, cooldownSeconds, deepAutoEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, visionMode])
+  }, [addSceneEvent, cooldownSeconds, deepAutoEnabled, detectorEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
@@ -895,6 +961,10 @@ export function KimVisionPanel() {
   useEffect(() => {
     window.localStorage.setItem(deepAutoStorageKey, String(deepAutoEnabled))
   }, [deepAutoEnabled])
+
+  useEffect(() => {
+    window.localStorage.setItem(detectorEnabledStorageKey, String(detectorEnabled))
+  }, [detectorEnabled])
 
   useEffect(() => {
     window.localStorage.setItem(assessmentLogStorageKey, JSON.stringify(assessments))
@@ -1003,6 +1073,10 @@ export function KimVisionPanel() {
           <input checked={deepAutoEnabled} onChange={(event) => setDeepAutoEnabled(event.target.checked)} type="checkbox" />
           <span>Deep auto</span>
         </label>
+        <label className="camera-toggle kim-vision-deep-auto">
+          <input checked={detectorEnabled} onChange={(event) => setDetectorEnabled(event.target.checked)} type="checkbox" />
+          <span>Detector</span>
+        </label>
         <label htmlFor="kim-vision-model">
           <span>HF model</span>
           <input
@@ -1056,6 +1130,15 @@ export function KimVisionPanel() {
         <button disabled={visionMode !== 'gpuServer'} onClick={() => void refreshGpuServerHealth()} type="button">
           Check server
         </button>
+        <button
+          disabled={detectorStatus.stage === 'loading' || detectorStatus.stage === 'detecting'}
+          onClick={() => void loadKimObjectDetector(setDetectorStatus).catch((error: unknown) => {
+            setDetectorStatus({ detail: error instanceof Error ? error.message : 'Local detector failed to load.', stage: 'error' })
+          })}
+          type="button"
+        >
+          {detectorStatus.stage === 'loading' ? 'Loading detector...' : 'Load detector'}
+        </button>
         <button disabled={assessments.length === 0} onClick={() => setAssessments([])} type="button">
           Clear log
         </button>
@@ -1074,11 +1157,18 @@ export function KimVisionPanel() {
             : 'No image leaves the browser; only brightness and motion are computed.'}</span>
       </div>
 
+      <div className={`kim-vision-model-status ${detectorStatus.stage}`}>
+        <strong>Local detector</strong>
+        <span>{detectorEnabled
+          ? `${detectorStatus.detail} Runs every ${detectorProbeFrames} frames or on meaningful motion.`
+          : 'Detector disabled. KIM is relying on motion probes and caption enrichment.'}</span>
+      </div>
+
       <div className="kim-scene-awareness">
         <div>
           <p className="eyebrow">Situational Awareness V2</p>
           <strong>{sceneMemory.summary}</strong>
-          <span>Confidence {sceneMemory.confidence}% · Last motion region {sceneMemory.motionRegion}</span>
+          <span>Confidence {sceneMemory.confidence}% · Last motion region {sceneMemory.motionRegion} · Detector {detectorEnabled ? detectorStatus.stage : 'off'}</span>
         </div>
         <div className="kim-scene-metrics">
           <span data-state={sceneMemory.presence}>{sceneMemory.presence}</span>
