@@ -61,6 +61,11 @@ type SceneMemory = {
   summary: string
 }
 
+type SceneMemoryEvidence = {
+  forceAssessment: boolean
+  motion: number | null
+}
+
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
 const gpuEndpointStorageKey = 'enforge-kim-vision-gpu-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
@@ -234,18 +239,30 @@ function addUniqueEntity(entities: string[], entity: string) {
   return entities.includes(entity) ? entities : [entity, ...entities].slice(0, 8)
 }
 
-function sceneMemoryFromObservation(memory: SceneMemory, note: string, timestamp: string, region: MotionRegion): SceneMemory {
+function sceneMemoryFromObservation(memory: SceneMemory, note: string, timestamp: string, region: MotionRegion, evidence: SceneMemoryEvidence): SceneMemory {
   const normalized = note.toLowerCase()
   let next = { ...memory, lastEventAt: timestamp, motionRegion: region }
+  const motion = evidence.motion ?? 0
+  const postureMotionConfirmed = !evidence.forceAssessment && (
+    motion >= 5
+    || region === 'upper'
+    || region === 'wide'
+  )
   if (/\b(person|man|brandon)\b/.test(normalized)) {
     next = { ...next, confidence: Math.max(next.confidence, 68), presence: 'present' }
   }
   if (/\b(empty chair|chair is empty|no person|away)\b/.test(normalized)) {
     next = { ...next, activity: 'unknown', confidence: Math.max(next.confidence, 60), presence: 'away' }
   }
-  if (/\bstanding|stands|stood\b/.test(normalized)) next = { ...next, activity: 'standing', confidence: Math.max(next.confidence, 74), presence: 'present' }
-  if (/\bsitting|sits|seated\b/.test(normalized)) next = { ...next, activity: 'sitting', confidence: Math.max(next.confidence, 72), presence: 'present' }
-  if (/\bholding|hand|phone|remote|object|figurine|toothbrush|bottle|cup|mug\b/.test(normalized)) next = { ...next, activity: 'object_in_hand', confidence: Math.max(next.confidence, 76), presence: 'present' }
+  if (/\bstanding|stands|stood\b/.test(normalized) && postureMotionConfirmed) {
+    next = { ...next, activity: 'standing', confidence: Math.max(next.confidence, 74), presence: 'present' }
+  }
+  if (/\bsitting|sits|seated\b/.test(normalized)) {
+    next = { ...next, activity: 'sitting', confidence: Math.max(next.confidence, evidence.forceAssessment && motion <= 2 ? 66 : 72), presence: 'present' }
+  }
+  if (/\bholding|hand|phone|remote|object|figurine|toothbrush|bottle|cup|mug\b/.test(normalized)) {
+    next = { ...next, activity: 'object_in_hand', confidence: Math.max(next.confidence, 76), presence: 'present' }
+  }
   if (/\bdog\b/.test(normalized)) next = { ...next, entities: addUniqueEntity(next.entities, 'dog') }
   if (/\bfan\b/.test(normalized)) next = { ...next, entities: addUniqueEntity(next.entities, 'fan') }
   if (/\bphone|remote|object|figurine|toothbrush|bottle|cup|mug\b/.test(normalized)) next = { ...next, entities: addUniqueEntity(next.entities, 'held object') }
@@ -311,7 +328,7 @@ function triggerFromSignals(
   return null
 }
 
-const assessmentPrompt = 'Report only the visible activity or change in one short natural sentence. Focus on people, animals, held objects, entering, leaving, standing, sitting, or large motion. Avoid clothing, facial expressions, and room descriptions unless they are unmistakable. Avoid depth-direction claims such as in front of, behind, or next to; say visible near or also visible instead. Do not mention prompt categories or instructions. Do not identify private screen text.'
+const assessmentPrompt = 'Report only the visible activity or change in one short natural sentence. Focus on people, animals, held objects, entering, leaving, standing, sitting, or large motion. Avoid clothing, facial expressions, and room descriptions unless they are unmistakable. Avoid guessing posture from an ambiguous still frame; say person visible if standing versus sitting is unclear. Avoid depth-direction claims such as in front of, behind, or next to; say visible near or also visible instead. Do not mention prompt categories or instructions. Do not identify private screen text.'
 
 function prependAssessment(current: VisionAssessment[], next: VisionAssessment) {
   const duplicate = current.some((assessment) => (
@@ -777,16 +794,30 @@ export function KimVisionPanel() {
       const nextMemory = updateVisionObservation(memoryRef.current, assessmentFrame.timestamp, runDeepAssessment ? note : undefined)
       memoryRef.current = nextMemory
       if (runDeepAssessment) {
-        const nextSceneMemory = sceneMemoryFromObservation(sceneMemoryRef.current, note, assessmentFrame.timestamp, region)
+        const previousSceneSummary = sceneMemoryRef.current.summary
+        const nextSceneMemory = sceneMemoryFromObservation(sceneMemoryRef.current, note, assessmentFrame.timestamp, region, {
+          forceAssessment,
+          motion: assessmentFrame.motion,
+        })
         sceneMemoryRef.current = nextSceneMemory
         setSceneMemory(nextSceneMemory)
-        addSceneEvent({
-          detail: `Scene memory updated: ${nextSceneMemory.summary}`,
-          motion: assessmentFrame.motion,
-          region,
-          timestamp: assessmentFrame.timestamp,
-          type: nextSceneMemory.activity === 'object_in_hand' ? 'object' : 'presence',
-        })
+        if (nextSceneMemory.summary !== previousSceneSummary) {
+          addSceneEvent({
+            detail: `Scene memory updated: ${nextSceneMemory.summary}`,
+            motion: assessmentFrame.motion,
+            region,
+            timestamp: assessmentFrame.timestamp,
+            type: nextSceneMemory.activity === 'object_in_hand' ? 'object' : 'presence',
+          })
+        } else if (/\bstanding|stands|stood\b/i.test(note) && forceAssessment) {
+          addSceneEvent({
+            detail: 'Manual caption suggested standing, but scene memory held posture because the live sensor did not confirm movement.',
+            motion: assessmentFrame.motion,
+            region,
+            timestamp: assessmentFrame.timestamp,
+            type: 'unknown',
+          })
+        }
       }
       setAssessments((current) => prependAssessment(current, {
         brightness: assessmentFrame.brightness,
