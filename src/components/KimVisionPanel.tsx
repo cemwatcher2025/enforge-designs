@@ -6,6 +6,7 @@ type VisionMode = 'gpuServer' | 'moondream' | 'proxy' | 'stats'
 
 type VisionAssessment = {
   brightness: number
+  durationMs?: number
   kind?: 'check' | 'observation' | 'notice' | 'error'
   mode: VisionMode
   motion: number | null
@@ -181,6 +182,19 @@ const assessmentPrompt = 'Report only the visible activity or change in one shor
 
 function prependAssessment(current: VisionAssessment[], next: VisionAssessment) {
   return [next, ...current].slice(0, 40)
+}
+
+function visionModeLabel(mode: VisionMode) {
+  if (mode === 'gpuServer') return 'GPU server'
+  if (mode === 'moondream') return 'Browser model'
+  if (mode === 'proxy') return 'Proxy'
+  return 'Stats only'
+}
+
+function formatDuration(durationMs?: number) {
+  if (durationMs == null) return null
+  if (durationMs < 1000) return `${durationMs}ms`
+  return `${(durationMs / 1000).toFixed(1)}s`
 }
 
 function updateVisionObservation(memory: VisionMemory, timestamp: string, deepObservation?: string) {
@@ -505,6 +519,7 @@ export function KimVisionPanel() {
       memoryRef.current = nextMemory
       setAssessments((current) => prependAssessment(current, {
         brightness,
+        durationMs: Date.now() - now,
         kind: runDeepAssessment ? 'observation' : 'notice',
         mode: visionMode,
         motion,
@@ -740,7 +755,14 @@ export function KimVisionPanel() {
           <div data-kind={assessment.kind || 'observation'} key={assessment.timestamp}>
             <strong>{new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(assessment.timestamp))}</strong>
             <p>{assessment.note}</p>
-            <span>{assessment.trigger} · Light {assessment.brightness}% · Motion {assessment.motion == null ? 'baseline' : `${assessment.motion}%`}</span>
+            <span>
+              {assessment.trigger}
+              {' · '}
+              {visionModeLabel(assessment.mode)}
+              {formatDuration(assessment.durationMs) ? ` · ${formatDuration(assessment.durationMs)}` : ''}
+              {' · '}
+              Light {assessment.brightness}% · Motion {assessment.motion == null ? 'baseline' : `${assessment.motion}%`}
+            </span>
           </div>
         ))}
       </div>
