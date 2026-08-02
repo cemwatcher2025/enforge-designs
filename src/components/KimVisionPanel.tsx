@@ -66,6 +66,11 @@ type SceneMemoryEvidence = {
   motion: number | null
 }
 
+function settleActivityFromMemory(activity: SceneMemory['activity']) {
+  if (activity === 'standing' || activity === 'moving' || activity === 'object_in_hand') return 'sitting'
+  return activity === 'unknown' ? 'idle' : activity
+}
+
 const endpointStorageKey = 'enforge-kim-vision-endpoint'
 const gpuEndpointStorageKey = 'enforge-kim-vision-gpu-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
@@ -400,6 +405,7 @@ function cleanModelObservation(note: string, fallback: string) {
     'fan on her head',
     'fan on the head',
     'bald head',
+    'shaved head',
     'blurry photo',
     'couch in the background',
     'tie',
@@ -441,7 +447,9 @@ function cleanModelObservation(note: string, fallback: string) {
       .replace(/^a person and tie is\s+/i, 'A person is ')
       .replace(/\s+and tie\s+/gi, ' ')
       .replace(/\s+with a shaved chest and a bald head/gi, '')
+      .replace(/\s+with a shaved head and tattoos on (his|her|their) arm/gi, ' with tattoos on the arm')
       .replace(/\s+with a bald head/gi, '')
+      .replace(/\s+with a shaved head/gi, '')
       .replace(/\s+in a blurry photo/gi, '')
       .replace(/\s+with a person sitting on a couch in the background/gi, '')
       .replace(/\s+on a couch in the background/gi, '')
@@ -576,7 +584,7 @@ export function KimVisionPanel() {
     const nextMemory: SceneMemory = {
       ...sceneMemoryRef.current,
       activity: event.type === 'settled'
-        ? 'idle'
+        ? settleActivityFromMemory(sceneMemoryRef.current.activity)
         : event.type === 'object'
           ? 'object_in_hand'
           : event.type === 'motion'
@@ -686,9 +694,14 @@ export function KimVisionPanel() {
             timestamp,
             type: 'motion',
           })
-        } else if (sceneMemoryRef.current.activity === 'moving' && motion <= 2) {
+        } else if (
+          motion <= 2
+          && ['moving', 'object_in_hand', 'standing'].includes(sceneMemoryRef.current.activity)
+        ) {
           addSceneEvent({
-            detail: 'Real-time sensor: movement settled back to baseline.',
+            detail: sceneMemoryRef.current.activity === 'standing'
+              ? 'Real-time sensor: standing movement settled; treating posture as likely seated.'
+              : 'Real-time sensor: movement settled back to baseline.',
             motion,
             region,
             timestamp,
