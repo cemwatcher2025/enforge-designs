@@ -364,9 +364,25 @@ function prependAssessment(current: VisionAssessment[], next: VisionAssessment) 
   const duplicate = current.some((assessment) => (
     assessment.note === next.note
     && assessment.trigger === next.trigger
+    && assessment.kind === next.kind
+    && assessment.mode === next.mode
     && Math.abs(new Date(assessment.timestamp).getTime() - new Date(next.timestamp).getTime()) < 1000
   ))
   return duplicate ? current : [next, ...current].slice(0, 40)
+}
+
+function compactAssessments(entries: VisionAssessment[]) {
+  return entries.reduce<VisionAssessment[]>((compacted, entry) => prependAssessment(compacted, entry), [])
+}
+
+function assessmentKey(assessment: VisionAssessment, index: number) {
+  return [
+    assessment.timestamp,
+    assessment.kind || 'observation',
+    assessment.mode,
+    assessment.trigger,
+    index,
+  ].join(':')
 }
 
 function visionModeLabel(mode: VisionMode) {
@@ -585,7 +601,7 @@ export function KimVisionPanel() {
   const [assessments, setAssessments] = useState<VisionAssessment[]>(() => {
     try {
       const parsed = JSON.parse(window.localStorage.getItem(assessmentLogStorageKey) || '[]') as VisionAssessment[]
-      return Array.isArray(parsed) ? parsed.slice(0, 20) : []
+      return Array.isArray(parsed) ? compactAssessments(parsed).slice(0, 20) : []
     } catch {
       return []
     }
@@ -1191,8 +1207,8 @@ export function KimVisionPanel() {
       <div className="kim-vision-feed">
         {assessments.length === 0 ? (
           <p>No assessments yet. Start the camera, enable analysis, or click Analyze now.</p>
-        ) : assessments.map((assessment) => (
-          <div data-kind={assessment.kind || 'observation'} key={assessment.timestamp}>
+        ) : assessments.map((assessment, index) => (
+          <div data-kind={assessment.kind || 'observation'} key={assessmentKey(assessment, index)}>
             <strong>{new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(assessment.timestamp))}</strong>
             <p>{assessment.note}</p>
             <span>
