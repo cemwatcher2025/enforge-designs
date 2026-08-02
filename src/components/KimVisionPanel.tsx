@@ -249,9 +249,10 @@ function sceneMemoryFromObservation(memory: SceneMemory, note: string, timestamp
   let next = { ...memory, lastEventAt: timestamp, motionRegion: region }
   const motion = evidence.motion ?? 0
   const postureMotionConfirmed = !evidence.forceAssessment && (
-    motion >= 5
+    (motion >= 5 && region !== 'lower')
     || region === 'upper'
     || region === 'wide'
+    || (region === 'center' && motion >= 8)
   )
   if (/\b(person|man|brandon)\b/.test(normalized)) {
     next = { ...next, confidence: Math.max(next.confidence, 68), presence: 'present' }
@@ -701,7 +702,9 @@ export function KimVisionPanel() {
           addSceneEvent({
             detail: sceneMemoryRef.current.activity === 'standing'
               ? 'Real-time sensor: standing movement settled; treating posture as likely seated.'
-              : 'Real-time sensor: movement settled back to baseline.',
+              : sceneMemoryRef.current.activity === 'object_in_hand'
+                ? 'Real-time sensor: held-object movement settled; treating posture as likely seated.'
+                : 'Real-time sensor: movement settled back to baseline.',
             motion,
             region,
             timestamp,
