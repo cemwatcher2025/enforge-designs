@@ -314,7 +314,12 @@ function triggerFromSignals(
 const assessmentPrompt = 'Report only the visible activity or change in one short natural sentence. Focus on people, animals, held objects, entering, leaving, standing, sitting, or large motion. Avoid clothing, facial expressions, and room descriptions unless they are unmistakable. Avoid depth-direction claims such as in front of, behind, or next to; say visible near or also visible instead. Do not mention prompt categories or instructions. Do not identify private screen text.'
 
 function prependAssessment(current: VisionAssessment[], next: VisionAssessment) {
-  return [next, ...current].slice(0, 40)
+  const duplicate = current.some((assessment) => (
+    assessment.note === next.note
+    && assessment.trigger === next.trigger
+    && Math.abs(new Date(assessment.timestamp).getTime() - new Date(next.timestamp).getTime()) < 1000
+  ))
+  return duplicate ? current : [next, ...current].slice(0, 40)
 }
 
 function visionModeLabel(mode: VisionMode) {
@@ -377,6 +382,9 @@ function cleanModelObservation(note: string, fallback: string) {
     'fan on his head',
     'fan on her head',
     'fan on the head',
+    'bald head',
+    'blurry photo',
+    'couch in the background',
     'tie',
     'surprised',
     'sunset',
@@ -415,6 +423,11 @@ function cleanModelObservation(note: string, fallback: string) {
       .replace(/^a man and tie is\s+/i, 'A man is ')
       .replace(/^a person and tie is\s+/i, 'A person is ')
       .replace(/\s+and tie\s+/gi, ' ')
+      .replace(/\s+with a shaved chest and a bald head/gi, '')
+      .replace(/\s+with a bald head/gi, '')
+      .replace(/\s+in a blurry photo/gi, '')
+      .replace(/\s+with a person sitting on a couch in the background/gi, '')
+      .replace(/\s+on a couch in the background/gi, '')
       .replace(/\s+in a blue shirt and tie/gi, '')
       .replace(/\s+in a blue shirt/gi, '')
       .replace(/\s+wearing a blue shirt/gi, '')
@@ -485,6 +498,7 @@ export function KimVisionPanel() {
   const lastSceneEventAtRef = useRef(0)
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const sceneMemoryRef = useRef<SceneMemory>(defaultSceneMemory())
+  const sceneEventsRef = useRef<SceneEvent[]>([])
   const frameCountRef = useRef(0)
   const motionTrailRef = useRef(0)
   const frameBufferRef = useRef<BufferedVisionFrame[]>([])
@@ -527,9 +541,18 @@ export function KimVisionPanel() {
       : status
 
   const addSceneEvent = useCallback((event: SceneEvent, options: { logFeed?: boolean } = {}) => {
+    const previousEvent = sceneEventsRef.current[0]
+    if (
+      previousEvent
+      && previousEvent.detail === event.detail
+      && Math.abs(new Date(previousEvent.timestamp).getTime() - new Date(event.timestamp).getTime()) < 45000
+    ) {
+      return
+    }
     lastSceneEventAtRef.current = Date.now()
     setSceneEvents((current) => {
       const next = [event, ...current].slice(0, 12)
+      sceneEventsRef.current = next
       window.localStorage.setItem(sceneEventsStorageKey, JSON.stringify(next))
       return next
     })
@@ -833,6 +856,10 @@ export function KimVisionPanel() {
   useEffect(() => {
     sceneMemoryRef.current = sceneMemory
   }, [sceneMemory])
+
+  useEffect(() => {
+    sceneEventsRef.current = sceneEvents
+  }, [sceneEvents])
 
   useEffect(() => {
     if (!enabled || !isActive) return undefined
