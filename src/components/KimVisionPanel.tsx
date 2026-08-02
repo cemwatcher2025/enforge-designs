@@ -144,16 +144,42 @@ function averageBrightness(data: Uint8ClampedArray) {
   return Math.round((total / (data.length / 4 / stride) / 255) * 100)
 }
 
-function frameDelta(current: Uint8ClampedArray, previous: Uint8ClampedArray | null) {
+function frameDelta(current: Uint8ClampedArray, previous: Uint8ClampedArray | null, width: number, height: number) {
   if (!previous) return null
+  const columns = 8
+  const rows = 6
+  const cellTotals = Array.from({ length: columns * rows }, () => 0)
+  const cellSamples = Array.from({ length: columns * rows }, () => 0)
+  const stride = 10
+  let activeSamples = 0
+  let samples = 0
   let total = 0
-  const stride = 20
-  for (let index = 0; index < current.length; index += 4 * stride) {
-    total += Math.abs(current[index] - previous[index])
-      + Math.abs(current[index + 1] - previous[index + 1])
-      + Math.abs(current[index + 2] - previous[index + 2])
+
+  for (let y = 0; y < height; y += stride) {
+    for (let x = 0; x < width; x += stride) {
+      const index = (y * width + x) * 4
+      const delta = Math.abs(current[index] - previous[index])
+        + Math.abs(current[index + 1] - previous[index + 1])
+        + Math.abs(current[index + 2] - previous[index + 2])
+      const cellX = Math.min(columns - 1, Math.floor((x / width) * columns))
+      const cellY = Math.min(rows - 1, Math.floor((y / height) * rows))
+      const cellIndex = (cellY * columns) + cellX
+      cellTotals[cellIndex] += delta
+      cellSamples[cellIndex] += 1
+      total += delta
+      samples += 1
+      if (delta >= 34) activeSamples += 1
+    }
   }
-  return Math.round((total / (current.length / 4 / stride) / 765) * 100)
+
+  const globalScore = (total / samples / 765) * 100
+  const hotCellScore = cellTotals.reduce((strongest, cellTotal, index) => {
+    const cellSampleCount = cellSamples[index]
+    if (!cellSampleCount) return strongest
+    return Math.max(strongest, (cellTotal / cellSampleCount / 765) * 100)
+  }, 0)
+  const activeSampleScore = (activeSamples / samples) * 100
+  return Math.round(Math.max(globalScore, hotCellScore * 1.45, activeSampleScore * 1.6))
 }
 
 function motionRegion(current: Uint8ClampedArray, previous: Uint8ClampedArray | null, width: number, height: number): MotionRegion {
@@ -167,7 +193,7 @@ function motionRegion(current: Uint8ClampedArray, previous: Uint8ClampedArray | 
       const delta = Math.abs(current[index] - previous[index])
         + Math.abs(current[index + 1] - previous[index + 1])
         + Math.abs(current[index + 2] - previous[index + 2])
-      if (delta < 42) continue
+      if (delta < 32) continue
       samples += 1
       if (x < width * 0.33) zones.left += 1
       else if (x > width * 0.66) zones.right += 1
@@ -804,7 +830,7 @@ export function KimVisionPanel() {
       const image = context.getImageData(0, 0, width, height)
       const brightness = averageBrightness(image.data)
       const previousFrame = previousFrameRef.current
-      const motion = frameDelta(image.data, previousFrame)
+      const motion = frameDelta(image.data, previousFrame, width, height)
       const region = motionRegion(image.data, previousFrame, width, height)
       previousFrameRef.current = new Uint8ClampedArray(image.data)
       const brightnessDelta = lastBrightnessRef.current == null ? 0 : Math.abs(brightness - lastBrightnessRef.current)
