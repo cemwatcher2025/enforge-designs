@@ -102,6 +102,8 @@ const bufferedMotionFloor = 5
 const sceneEventCooldownMs = 2500
 const detectorProbeFrames = 45
 const detectorEventCooldownMs = 5000
+const sceneEventHistoryLimit = 60
+const sceneEventDisplayLimit = 16
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -197,7 +199,7 @@ function loadSceneMemory() {
 function loadSceneEvents() {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(sceneEventsStorageKey) || '[]') as SceneEvent[]
-    return Array.isArray(parsed) ? parsed.slice(0, 12) : []
+    return Array.isArray(parsed) ? parsed.slice(0, sceneEventHistoryLimit) : []
   } catch {
     return []
   }
@@ -614,16 +616,17 @@ export function KimVisionPanel() {
 
   const addSceneEvent = useCallback((event: SceneEvent, options: { logFeed?: boolean } = {}) => {
     const previousEvent = sceneEventsRef.current[0]
+    const duplicateWindowMs = event.type === 'detector' ? 10000 : 45000
     if (
       previousEvent
       && previousEvent.detail === event.detail
-      && Math.abs(new Date(previousEvent.timestamp).getTime() - new Date(event.timestamp).getTime()) < 45000
+      && Math.abs(new Date(previousEvent.timestamp).getTime() - new Date(event.timestamp).getTime()) < duplicateWindowMs
     ) {
       return
     }
     lastSceneEventAtRef.current = Date.now()
     setSceneEvents((current) => {
-      const next = [event, ...current].slice(0, 12)
+      const next = [event, ...current].slice(0, sceneEventHistoryLimit)
       sceneEventsRef.current = next
       window.localStorage.setItem(sceneEventsStorageKey, JSON.stringify(next))
       return next
@@ -1194,13 +1197,18 @@ export function KimVisionPanel() {
         <div className="kim-scene-events">
           {sceneEvents.length === 0 ? (
             <span>No sensor events yet.</span>
-          ) : sceneEvents.slice(0, 4).map((event) => (
-            <span key={`${event.timestamp}-${event.detail}`}>
-              {new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(event.timestamp))}
-              {' · '}
-              {event.detail}
-            </span>
-          ))}
+          ) : (
+            <>
+              <span className="kim-scene-events-summary">Showing {Math.min(sceneEvents.length, sceneEventDisplayLimit)} of {sceneEvents.length} stored sensor events.</span>
+              {sceneEvents.slice(0, sceneEventDisplayLimit).map((event, index) => (
+                <span key={`${event.timestamp}-${event.type}-${index}`}>
+                  {new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(event.timestamp))}
+                  {' · '}
+                  {event.detail}
+                </span>
+              ))}
+            </>
+          )}
         </div>
       </div>
 

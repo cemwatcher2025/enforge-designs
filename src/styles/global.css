@@ -995,8 +995,14 @@ h2 {
 .kim-scene-events {
   display: grid;
   gap: 6px;
-  max-height: 92px;
+  max-height: 180px;
   overflow: auto;
+}
+
+.kim-scene-events-summary {
+  color: #00e5ff !important;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .kim-vision-feed {
