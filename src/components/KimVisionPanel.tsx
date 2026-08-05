@@ -97,6 +97,7 @@ type KimVisionDebugPacket = {
   settings: {
     ambientChangeThreshold: number
     ambientGateIntervalSeconds: number
+    ambientStartupQuietSeconds: number
     cooldownSeconds: number
     deepAutoEnabled: boolean
     frameInterval: number
@@ -140,6 +141,7 @@ const baselineAdaptRate = 0.12
 const defaultFrameInterval = 900
 const defaultAmbientGateIntervalSeconds = 5
 const defaultAmbientChangeThreshold = 5
+const ambientStartupQuietSeconds = 60
 const defaultCooldownSeconds = 45
 const motionProbeFrames = 10
 const bufferedFrameWindowMs = 3000
@@ -780,6 +782,7 @@ export function KimVisionPanel() {
     settings: {
       ambientChangeThreshold,
       ambientGateIntervalSeconds,
+      ambientStartupQuietSeconds,
       cooldownSeconds,
       deepAutoEnabled,
       frameInterval,
@@ -928,6 +931,9 @@ export function KimVisionPanel() {
       const timestamp = new Date().toISOString()
       let note = localNote(brightness, motion)
       const now = Date.now()
+      const sessionAgeSeconds = sessionStartedAtRef.current == null
+        ? Number.POSITIVE_INFINITY
+        : Math.round((now - new Date(sessionStartedAtRef.current).getTime()) / 1000)
       const interestingFrame = interestingFrameRef.current
       const gateChangeScore = sceneChangeScore(image.data, interestingFrame, width, height)
       const baselineAgeSeconds = lastMeaningfulChangeAtRef.current == null
@@ -1082,14 +1088,19 @@ export function KimVisionPanel() {
         && motion != null
         && motion >= Math.max((memoryRef.current.averageMotion ?? 0) + 8, 12)
       const triggerReason = triggerFromSignals(forceAssessment, motion, brightnessDelta, signal, motionThreshold)
+      const startupQuietActive = !forceAssessment
+        && sessionAgeSeconds < ambientStartupQuietSeconds
+        && (gateChangeScore == null || gateChangeScore < ambientChangeThreshold * 3)
       const shouldAssess = forceAssessment
-        || (cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange || sustainedLearnedMotion || strongLearnedMotion))
+        || (!startupQuietActive && cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange || sustainedLearnedMotion || strongLearnedMotion))
 
       if (!shouldAssess) {
         const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp)
         memoryRef.current = nextMemory
         if (!logRoutineCheck) return
-        const quietNote = quietCheckNote(brightness, motion, nextMemory)
+        const quietNote = startupQuietActive
+          ? `${quietCheckNote(brightness, motion, nextMemory)} Startup quiet window is suppressing small first-minute deep captions.`
+          : quietCheckNote(brightness, motion, nextMemory)
         setAssessments((current) => prependAssessment(current, {
           brightness,
           kind: 'check',
@@ -1099,9 +1110,11 @@ export function KimVisionPanel() {
           timestamp,
           trigger: 'routine check',
         }))
-        setStatus(signal.ready
-          ? `Routine check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} is within learned baseline.`
-          : `Routine check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} stays below ${motionThreshold}%.`)
+        setStatus(startupQuietActive
+          ? `Startup quiet check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} is being used to settle the room baseline.`
+          : signal.ready
+            ? `Routine check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} is within learned baseline.`
+            : `Routine check logged. Motion ${motion == null ? 'baseline' : `${motion}%`} stays below ${motionThreshold}%.`)
         return
       }
 
