@@ -374,6 +374,14 @@ function sensorMotionLabel(motion: number, signal: BaselineSignal) {
   return 'movement'
 }
 
+function activityFromSceneEvent(event: SceneEvent, currentActivity: SceneMemory['activity']) {
+  if (event.type === 'settled') return settleActivityFromMemory(currentActivity)
+  if (event.type === 'object') return 'object_in_hand'
+  if (event.type !== 'motion') return currentActivity
+  if ((event.motion ?? 0) >= 18 || event.region === 'wide') return 'moving'
+  return currentActivity
+}
+
 function addUniqueEntity(entities: string[], entity: string) {
   return entities.includes(entity) ? entities : [entity, ...entities].slice(0, 8)
 }
@@ -890,13 +898,7 @@ export function KimVisionPanel() {
     })
     const nextMemory: SceneMemory = {
       ...sceneMemoryRef.current,
-      activity: event.type === 'settled'
-        ? settleActivityFromMemory(sceneMemoryRef.current.activity)
-        : event.type === 'object'
-          ? 'object_in_hand'
-          : event.type === 'motion'
-            ? 'moving'
-            : sceneMemoryRef.current.activity,
+      activity: activityFromSceneEvent(event, sceneMemoryRef.current.activity),
       confidence: Math.max(sceneMemoryRef.current.confidence, event.type === 'settled' ? 54 : 62),
       lastEventAt: event.timestamp,
       motionRegion: event.region,
