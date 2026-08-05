@@ -96,6 +96,8 @@ type KimVisionDebugPacket = {
   sceneMemory: SceneMemory
   settings: {
     ambientChangeThreshold: number
+    ambientStartupDeepChangeThreshold: number
+    ambientStartupDeepMotionThreshold: number
     ambientGateIntervalSeconds: number
     ambientStartupQuietSeconds: number
     cooldownSeconds: number
@@ -142,6 +144,8 @@ const defaultFrameInterval = 900
 const defaultAmbientGateIntervalSeconds = 5
 const defaultAmbientChangeThreshold = 5
 const ambientStartupQuietSeconds = 60
+const ambientStartupDeepChangeThreshold = 35
+const ambientStartupDeepMotionThreshold = 28
 const defaultCooldownSeconds = 45
 const motionProbeFrames = 10
 const bufferedFrameWindowMs = 3000
@@ -781,6 +785,8 @@ export function KimVisionPanel() {
     sceneMemory,
     settings: {
       ambientChangeThreshold,
+      ambientStartupDeepChangeThreshold,
+      ambientStartupDeepMotionThreshold,
       ambientGateIntervalSeconds,
       ambientStartupQuietSeconds,
       cooldownSeconds,
@@ -1090,7 +1096,11 @@ export function KimVisionPanel() {
       const triggerReason = triggerFromSignals(forceAssessment, motion, brightnessDelta, signal, motionThreshold)
       const startupQuietActive = !forceAssessment
         && sessionAgeSeconds < ambientStartupQuietSeconds
-        && (gateChangeScore == null || gateChangeScore < ambientChangeThreshold * 3)
+        && (
+          gateChangeScore == null
+          || gateChangeScore < ambientStartupDeepChangeThreshold
+          || (motion != null && motion < ambientStartupDeepMotionThreshold)
+        )
       const shouldAssess = forceAssessment
         || (!startupQuietActive && cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange || sustainedLearnedMotion || strongLearnedMotion))
 
