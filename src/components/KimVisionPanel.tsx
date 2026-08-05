@@ -140,8 +140,6 @@ const defaultFrameInterval = 900
 const defaultAmbientGateIntervalSeconds = 5
 const defaultAmbientChangeThreshold = 5
 const defaultCooldownSeconds = 45
-const strongMotionCooldownSeconds = 22
-const sustainedMotionCooldownSeconds = 14
 const motionProbeFrames = 10
 const bufferedFrameWindowMs = 3000
 const bufferedMotionFloor = 5
@@ -207,6 +205,26 @@ function frameDelta(current: Uint8ClampedArray, previous: Uint8ClampedArray | nu
   }, 0)
   const activeSampleScore = (activeSamples / samples) * 100
   return Math.round(Math.max(globalScore, hotCellScore * 1.45, activeSampleScore * 1.6))
+}
+
+function sceneChangeScore(current: Uint8ClampedArray, previous: Uint8ClampedArray | null, width: number, height: number) {
+  if (!previous) return null
+  const stride = 8
+  let changedSamples = 0
+  let samples = 0
+
+  for (let y = 0; y < height; y += stride) {
+    for (let x = 0; x < width; x += stride) {
+      const index = (y * width + x) * 4
+      const delta = Math.abs(current[index] - previous[index])
+        + Math.abs(current[index + 1] - previous[index + 1])
+        + Math.abs(current[index + 2] - previous[index + 2])
+      samples += 1
+      if (delta / 3 >= 18) changedSamples += 1
+    }
+  }
+
+  return Math.round((changedSamples / samples) * 1000) / 10
 }
 
 function motionRegion(current: Uint8ClampedArray, previous: Uint8ClampedArray | null, width: number, height: number): MotionRegion {
@@ -893,7 +911,7 @@ export function KimVisionPanel() {
       let note = localNote(brightness, motion)
       const now = Date.now()
       const interestingFrame = interestingFrameRef.current
-      const gateChangeScore = frameDelta(image.data, interestingFrame, width, height)
+      const gateChangeScore = sceneChangeScore(image.data, interestingFrame, width, height)
       const baselineAgeSeconds = lastMeaningfulChangeAtRef.current == null
         ? 0
         : Math.round((now - lastMeaningfulChangeAtRef.current) / 1000)
@@ -1045,13 +1063,9 @@ export function KimVisionPanel() {
       const strongLearnedMotion = signal.ready
         && motion != null
         && motion >= Math.max((memoryRef.current.averageMotion ?? 0) + 8, 12)
-      const strongMotionCooldownOpen = now - lastAssessmentAtRef.current >= strongMotionCooldownSeconds * 1000
-      const sustainedMotionCooldownOpen = now - lastAssessmentAtRef.current >= sustainedMotionCooldownSeconds * 1000
       const triggerReason = triggerFromSignals(forceAssessment, motion, brightnessDelta, signal, motionThreshold)
       const shouldAssess = forceAssessment
-        || (cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange || sustainedLearnedMotion))
-        || (strongMotionCooldownOpen && strongLearnedMotion)
-        || (sustainedMotionCooldownOpen && sustainedLearnedMotion)
+        || (cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange || sustainedLearnedMotion || strongLearnedMotion))
 
       if (!shouldAssess) {
         const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp)
