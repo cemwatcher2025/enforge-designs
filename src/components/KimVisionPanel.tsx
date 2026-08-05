@@ -418,7 +418,7 @@ function summarizeScene(memory: SceneMemory) {
   return `${presence}; ${activity}; motion ${memory.motionRegion}${entities}.`
 }
 
-function sceneMemoryFromDetections(memory: SceneMemory, detections: KimDetection[], timestamp: string, region: MotionRegion): SceneMemory {
+function sceneMemoryFromDetections(memory: SceneMemory, detections: KimDetection[], timestamp: string, region: MotionRegion, motion: number | null): SceneMemory {
   const summary = summarizeKimDetections(detections)
   let next = { ...memory, lastEventAt: timestamp, motionRegion: region }
   if (summary.personVisible) {
@@ -432,6 +432,16 @@ function sceneMemoryFromDetections(memory: SceneMemory, detections: KimDetection
   }
   if (summary.chairVisible) {
     next = { ...next, entities: addUniqueEntity(next.entities, 'chair') }
+  }
+  if (
+    summary.personVisible
+    && summary.chairVisible
+    && !summary.heldObjectLikely
+    && motion != null
+    && motion <= 6
+    && ['moving', 'standing'].includes(next.activity)
+  ) {
+    next = { ...next, activity: 'sitting', confidence: Math.max(next.confidence, 80), presence: 'present' }
   }
   next.summary = summarizeScene(next)
   window.localStorage.setItem(sceneMemoryStorageKey, JSON.stringify(next))
@@ -905,7 +915,7 @@ export function KimVisionPanel() {
   }, [visionMode])
 
   const recordSettledScene = useCallback((motion: number | null, region: MotionRegion, timestamp: string, reason = 'movement settled back to baseline') => {
-    if (motion == null || motion > 2) return false
+    if (motion == null || motion > 5) return false
     if (!['moving', 'object_in_hand', 'standing'].includes(sceneMemoryRef.current.activity)) return false
     const detail = sceneMemoryRef.current.activity === 'standing'
       ? 'Real-time sensor: standing movement settled; treating posture as likely seated.'
@@ -1061,7 +1071,7 @@ export function KimVisionPanel() {
             timestamp,
             type: 'motion',
           })
-        } else if (motion <= 2) {
+        } else if (motion <= 5) {
           recordSettledScene(motion, region, timestamp)
         }
       }
@@ -1081,7 +1091,7 @@ export function KimVisionPanel() {
             const detectionSummary = summarizeKimDetections(detections)
             const labels = detectionSummary.labels.slice(0, 5)
             const previousSceneSummary = sceneMemoryRef.current.summary
-            const nextSceneMemory = sceneMemoryFromDetections(sceneMemoryRef.current, detections, timestamp, region)
+            const nextSceneMemory = sceneMemoryFromDetections(sceneMemoryRef.current, detections, timestamp, region, motion)
             sceneMemoryRef.current = nextSceneMemory
             setSceneMemory(nextSceneMemory)
             if (labels.length && nextSceneMemory.summary !== previousSceneSummary) {
