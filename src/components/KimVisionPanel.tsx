@@ -32,6 +32,15 @@ type BaselineSignal = {
   ready: boolean
 }
 
+type AmbientGateState = {
+  baselineAgeSeconds: number
+  changeScore: number | null
+  dwellSeconds: number
+  lastMeaningfulChangeAt: string | null
+  mode: 'initializing' | 'discarded' | 'passed' | 'manual'
+  threshold: number
+}
+
 type BufferedVisionFrame = {
   brightness: number
   height: number
@@ -68,6 +77,7 @@ type SceneMemoryEvidence = {
 }
 
 type KimVisionDebugPacket = {
+  ambientGate: AmbientGateState
   assessments: VisionAssessment[]
   camera: {
     active: boolean
@@ -84,6 +94,8 @@ type KimVisionDebugPacket = {
   sceneEvents: SceneEvent[]
   sceneMemory: SceneMemory
   settings: {
+    ambientChangeThreshold: number
+    ambientGateIntervalSeconds: number
     cooldownSeconds: number
     deepAutoEnabled: boolean
     frameInterval: number
@@ -107,6 +119,8 @@ const gpuEndpointStorageKey = 'enforge-kim-vision-gpu-endpoint'
 const visionModeStorageKey = 'enforge-kim-vision-mode'
 const modelStorageKey = 'enforge-kim-vision-model'
 const frameIntervalStorageKey = 'enforge-kim-vision-frame-interval'
+const ambientGateIntervalStorageKey = 'enforge-kim-ambient-gate-interval'
+const ambientChangeThresholdStorageKey = 'enforge-kim-ambient-change-threshold'
 const motionThresholdStorageKey = 'enforge-kim-vision-motion-threshold'
 const cooldownStorageKey = 'enforge-kim-vision-cooldown'
 const deepAutoStorageKey = 'enforge-kim-vision-deep-auto'
@@ -123,6 +137,8 @@ const defaultGpuEndpoint = 'http://127.0.0.1:8765'
 const baselineWarmupSamples = 8
 const baselineAdaptRate = 0.12
 const defaultFrameInterval = 900
+const defaultAmbientGateIntervalSeconds = 5
+const defaultAmbientChangeThreshold = 5
 const defaultCooldownSeconds = 45
 const strongMotionCooldownSeconds = 22
 const sustainedMotionCooldownSeconds = 14
@@ -134,6 +150,17 @@ const detectorProbeFrames = 45
 const detectorEventCooldownMs = 5000
 const sceneEventHistoryLimit = 60
 const sceneEventDisplayLimit = 16
+
+function defaultAmbientGateState(): AmbientGateState {
+  return {
+    baselineAgeSeconds: 0,
+    changeScore: null,
+    dwellSeconds: 0,
+    lastMeaningfulChangeAt: null,
+    mode: 'initializing',
+    threshold: defaultAmbientChangeThreshold,
+  }
+}
 
 function averageBrightness(data: Uint8ClampedArray) {
   let total = 0
@@ -395,6 +422,18 @@ function loadFrameInterval() {
   return saved
 }
 
+function loadAmbientGateIntervalSeconds() {
+  const saved = Number(window.localStorage.getItem(ambientGateIntervalStorageKey) || defaultAmbientGateIntervalSeconds)
+  if (!Number.isFinite(saved) || saved <= 0) return defaultAmbientGateIntervalSeconds
+  return Math.min(Math.max(saved, 2), 60)
+}
+
+function loadAmbientChangeThreshold() {
+  const saved = Number(window.localStorage.getItem(ambientChangeThresholdStorageKey) || defaultAmbientChangeThreshold)
+  if (!Number.isFinite(saved) || saved <= 0) return defaultAmbientChangeThreshold
+  return Math.min(Math.max(saved, 1), 40)
+}
+
 function loadCooldownSeconds() {
   const saved = Number(window.localStorage.getItem(cooldownStorageKey) || defaultCooldownSeconds)
   if (!Number.isFinite(saved) || saved <= 0) return defaultCooldownSeconds
@@ -621,9 +660,12 @@ export function KimVisionPanel() {
   const { attachVideo, isActive, isMirrored } = useCamera()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const previousFrameRef = useRef<Uint8ClampedArray | null>(null)
+  const interestingFrameRef = useRef<Uint8ClampedArray | null>(null)
   const lastBrightnessRef = useRef<number | null>(null)
   const lastAssessmentAtRef = useRef(0)
   const lastDetectorAtRef = useRef(0)
+  const lastGateCheckAtRef = useRef(0)
+  const lastMeaningfulChangeAtRef = useRef<number | null>(null)
   const lastSceneEventAtRef = useRef(0)
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const sceneMemoryRef = useRef<SceneMemory>(defaultSceneMemory())
@@ -633,7 +675,9 @@ export function KimVisionPanel() {
   const frameBufferRef = useRef<BufferedVisionFrame[]>([])
   const isSendingRef = useRef(false)
   const [enabled, setEnabled] = useState(false)
-  const [frameInterval, setFrameInterval] = useState(loadFrameInterval)
+  const [frameInterval] = useState(loadFrameInterval)
+  const [ambientGateIntervalSeconds, setAmbientGateIntervalSeconds] = useState(loadAmbientGateIntervalSeconds)
+  const [ambientChangeThreshold, setAmbientChangeThreshold] = useState(loadAmbientChangeThreshold)
   const [motionThreshold, setMotionThreshold] = useState(() => Number(window.localStorage.getItem(motionThresholdStorageKey) || 22))
   const [cooldownSeconds, setCooldownSeconds] = useState(loadCooldownSeconds)
   const [deepAutoEnabled, setDeepAutoEnabled] = useState(() => window.localStorage.getItem(deepAutoStorageKey) === 'true')
@@ -654,6 +698,10 @@ export function KimVisionPanel() {
   })
   const [sceneMemory, setSceneMemory] = useState<SceneMemory>(loadSceneMemory)
   const [sceneEvents, setSceneEvents] = useState<SceneEvent[]>(loadSceneEvents)
+  const [ambientGate, setAmbientGate] = useState<AmbientGateState>(() => ({
+    ...defaultAmbientGateState(),
+    threshold: loadAmbientChangeThreshold(),
+  }))
   const [modelStatus, setModelStatus] = useState<MoondreamStatus>({
     detail: hasBrowserMoondreamSupport()
       ? 'Local Moondream is available. First analysis downloads the model from Hugging Face.'
@@ -673,10 +721,11 @@ export function KimVisionPanel() {
   const effectiveStatus = !isActive
     ? 'Waiting for camera.'
     : enabled
-      ? `KIM is probing motion every ${motionProbeFrames} frames and logging routine checks every ${frameInterval.toLocaleString()} frames.`
+      ? `Layer 1 gate samples every ${ambientGateIntervalSeconds}s. Last gate: ${ambientGate.changeScore == null ? 'baseline pending' : `${ambientGate.changeScore}% change`} (${ambientGate.mode}).`
       : status
 
   const buildDebugPacket = useCallback((noteOverride = debugNote): KimVisionDebugPacket => ({
+    ambientGate,
     assessments,
     camera: {
       active: isActive,
@@ -693,6 +742,8 @@ export function KimVisionPanel() {
     sceneEvents,
     sceneMemory,
     settings: {
+      ambientChangeThreshold,
+      ambientGateIntervalSeconds,
       cooldownSeconds,
       deepAutoEnabled,
       frameInterval,
@@ -705,7 +756,10 @@ export function KimVisionPanel() {
     testNote: noteOverride.trim() || 'No human truth note provided yet.',
     version: 1,
   }), [
+    ambientGate,
     assessments,
+    ambientChangeThreshold,
+    ambientGateIntervalSeconds,
     cooldownSeconds,
     debugNote,
     deepAutoEnabled,
@@ -837,8 +891,62 @@ export function KimVisionPanel() {
       lastBrightnessRef.current = brightness
       const timestamp = new Date().toISOString()
       let note = localNote(brightness, motion)
-      const imageDataUrl = canvas.toDataURL('image/jpeg', 0.68)
       const now = Date.now()
+      const interestingFrame = interestingFrameRef.current
+      const gateChangeScore = frameDelta(image.data, interestingFrame, width, height)
+      const baselineAgeSeconds = lastMeaningfulChangeAtRef.current == null
+        ? 0
+        : Math.round((now - lastMeaningfulChangeAtRef.current) / 1000)
+
+      if (!forceAssessment && gateChangeScore == null) {
+        interestingFrameRef.current = new Uint8ClampedArray(image.data)
+        lastMeaningfulChangeAtRef.current = now
+        setAmbientGate({
+          baselineAgeSeconds: 0,
+          changeScore: null,
+          dwellSeconds: 0,
+          lastMeaningfulChangeAt: timestamp,
+          mode: 'initializing',
+          threshold: ambientChangeThreshold,
+        })
+        setStatus('Layer 1 gate initialized the first interesting-frame baseline.')
+        return
+      }
+
+      if (!forceAssessment && gateChangeScore != null && gateChangeScore < ambientChangeThreshold) {
+        setAmbientGate({
+          baselineAgeSeconds,
+          changeScore: gateChangeScore,
+          dwellSeconds: baselineAgeSeconds,
+          lastMeaningfulChangeAt: lastMeaningfulChangeAtRef.current == null ? null : new Date(lastMeaningfulChangeAtRef.current).toISOString(),
+          mode: 'discarded',
+          threshold: ambientChangeThreshold,
+        })
+        setStatus(`Layer 1 gate discarded frame: ${gateChangeScore}% change is below ${ambientChangeThreshold}%.`)
+        return
+      }
+
+      if (forceAssessment) {
+        setAmbientGate((current) => ({
+          ...current,
+          changeScore: gateChangeScore,
+          mode: 'manual',
+          threshold: ambientChangeThreshold,
+        }))
+      } else {
+        interestingFrameRef.current = new Uint8ClampedArray(image.data)
+        lastMeaningfulChangeAtRef.current = now
+        setAmbientGate({
+          baselineAgeSeconds,
+          changeScore: gateChangeScore,
+          dwellSeconds: baselineAgeSeconds,
+          lastMeaningfulChangeAt: timestamp,
+          mode: 'passed',
+          threshold: ambientChangeThreshold,
+        })
+      }
+
+      const imageDataUrl = canvas.toDataURL('image/jpeg', 0.68)
       const currentFrame: BufferedVisionFrame = {
         brightness,
         height,
@@ -1079,7 +1187,7 @@ export function KimVisionPanel() {
       isSendingRef.current = false
       setIsSending(false)
     }
-  }, [addSceneEvent, cooldownSeconds, deepAutoEnabled, detectorEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, visionMode])
+  }, [addSceneEvent, ambientChangeThreshold, cooldownSeconds, deepAutoEnabled, detectorEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
@@ -1108,6 +1216,14 @@ export function KimVisionPanel() {
   useEffect(() => {
     window.localStorage.setItem(frameIntervalStorageKey, String(frameInterval))
   }, [frameInterval])
+
+  useEffect(() => {
+    window.localStorage.setItem(ambientGateIntervalStorageKey, String(ambientGateIntervalSeconds))
+  }, [ambientGateIntervalSeconds])
+
+  useEffect(() => {
+    window.localStorage.setItem(ambientChangeThresholdStorageKey, String(ambientChangeThreshold))
+  }, [ambientChangeThreshold])
 
   useEffect(() => {
     window.localStorage.setItem(cooldownStorageKey, String(cooldownSeconds))
@@ -1141,10 +1257,10 @@ export function KimVisionPanel() {
     function tick() {
       if (cancelled) return
       frameCountRef.current += 1
-      if (frameCountRef.current % frameInterval === 0) {
-        void captureAndAssess('change detected', false, true)
-      } else if (frameCountRef.current % motionProbeFrames === 0) {
-        void captureAndAssess('motion probe', false, false)
+      const now = Date.now()
+      if (now - lastGateCheckAtRef.current >= ambientGateIntervalSeconds * 1000) {
+        lastGateCheckAtRef.current = now
+        void captureAndAssess('ambient gate', false, false)
       }
       requestId = window.requestAnimationFrame(tick)
     }
@@ -1154,7 +1270,7 @@ export function KimVisionPanel() {
       cancelled = true
       window.cancelAnimationFrame(requestId)
     }
-  }, [captureAndAssess, enabled, frameInterval, isActive])
+  }, [ambientGateIntervalSeconds, captureAndAssess, enabled, isActive])
 
   return (
     <article className="panel panel-wide kim-vision-panel">
@@ -1190,14 +1306,27 @@ export function KimVisionPanel() {
           </select>
         </label>
         <label htmlFor="kim-vision-interval">
-          <span>Watch interval</span>
+          <span>Gate interval seconds</span>
           <input
             id="kim-vision-interval"
-            min={60}
-            onChange={(event) => setFrameInterval(Number(event.target.value))}
-            step={20}
+            max={60}
+            min={2}
+            onChange={(event) => setAmbientGateIntervalSeconds(Number(event.target.value))}
+            step={1}
             type="number"
-            value={frameInterval}
+            value={ambientGateIntervalSeconds}
+          />
+        </label>
+        <label htmlFor="kim-ambient-threshold">
+          <span>Change threshold</span>
+          <input
+            id="kim-ambient-threshold"
+            max={40}
+            min={1}
+            onChange={(event) => setAmbientChangeThreshold(Number(event.target.value))}
+            step={1}
+            type="number"
+            value={ambientChangeThreshold}
           />
         </label>
         <label htmlFor="kim-vision-threshold">
@@ -1317,6 +1446,19 @@ export function KimVisionPanel() {
         <span>{detectorEnabled
           ? `${detectorStatus.detail} Runs every ${detectorProbeFrames} frames or on meaningful motion.`
           : 'Detector disabled. KIM is relying on motion probes and caption enrichment.'}</span>
+      </div>
+
+      <div className={`kim-vision-model-status ${ambientGate.mode === 'passed' ? 'ready' : ambientGate.mode === 'discarded' ? 'idle' : ambientGate.mode}`}>
+        <strong>Layer 1 change gate</strong>
+        <span>
+          {ambientGate.mode === 'initializing'
+            ? `Waiting for the first baseline frame. Sampling every ${ambientGateIntervalSeconds}s.`
+            : ambientGate.mode === 'discarded'
+              ? `Silent: ${ambientGate.changeScore}% change is below ${ambientGate.threshold}%. Dwell ${ambientGate.dwellSeconds}s.`
+              : ambientGate.mode === 'manual'
+                ? 'Manual Analyze bypassed the ambient gate.'
+                : `Passed: ${ambientGate.changeScore}% change met ${ambientGate.threshold}%. Previous baseline age ${ambientGate.baselineAgeSeconds}s.`}
+        </span>
       </div>
 
       <div className="kim-scene-awareness">
