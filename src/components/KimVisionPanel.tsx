@@ -91,6 +91,7 @@ type KimVisionDebugPacket = {
   generatedAt: string
   gpuServerStatus: string
   modelStatus: MoondreamStatus
+  sessionStartedAt: string | null
   sceneEvents: SceneEvent[]
   sceneMemory: SceneMemory
   settings: {
@@ -209,22 +210,32 @@ function frameDelta(current: Uint8ClampedArray, previous: Uint8ClampedArray | nu
 
 function sceneChangeScore(current: Uint8ClampedArray, previous: Uint8ClampedArray | null, width: number, height: number) {
   if (!previous) return null
-  const stride = 8
-  let changedSamples = 0
-  let samples = 0
+  const columns = 10
+  const rows = 8
+  const cellTotals = Array.from({ length: columns * rows }, () => 0)
+  const cellSamples = Array.from({ length: columns * rows }, () => 0)
+  const stride = 6
 
   for (let y = 0; y < height; y += stride) {
     for (let x = 0; x < width; x += stride) {
       const index = (y * width + x) * 4
-      const delta = Math.abs(current[index] - previous[index])
-        + Math.abs(current[index + 1] - previous[index + 1])
-        + Math.abs(current[index + 2] - previous[index + 2])
-      samples += 1
-      if (delta / 3 >= 18) changedSamples += 1
+      const currentGray = (current[index] + current[index + 1] + current[index + 2]) / 3
+      const previousGray = (previous[index] + previous[index + 1] + previous[index + 2]) / 3
+      const cellX = Math.min(columns - 1, Math.floor((x / width) * columns))
+      const cellY = Math.min(rows - 1, Math.floor((y / height) * rows))
+      const cellIndex = (cellY * columns) + cellX
+      cellTotals[cellIndex] += Math.abs(currentGray - previousGray)
+      cellSamples[cellIndex] += 1
     }
   }
 
-  return Math.round((changedSamples / samples) * 1000) / 10
+  const changedCells = cellTotals.reduce((count, total, index) => {
+    const samples = cellSamples[index]
+    if (!samples) return count
+    const averageCellDelta = total / samples
+    return averageCellDelta >= 12 ? count + 1 : count
+  }, 0)
+  return Math.round((changedCells / (columns * rows)) * 1000) / 10
 }
 
 function motionRegion(current: Uint8ClampedArray, previous: Uint8ClampedArray | null, width: number, height: number): MotionRegion {
@@ -685,6 +696,8 @@ export function KimVisionPanel() {
   const lastGateCheckAtRef = useRef(0)
   const lastMeaningfulChangeAtRef = useRef<number | null>(null)
   const lastSceneEventAtRef = useRef(0)
+  const sessionStartedAtRef = useRef<string | null>(null)
+  const sessionActiveRef = useRef(false)
   const memoryRef = useRef<VisionMemory>(loadVisionMemory())
   const sceneMemoryRef = useRef<SceneMemory>(defaultSceneMemory())
   const sceneEventsRef = useRef<SceneEvent[]>([])
@@ -744,7 +757,9 @@ export function KimVisionPanel() {
 
   const buildDebugPacket = useCallback((noteOverride = debugNote): KimVisionDebugPacket => ({
     ambientGate,
-    assessments,
+    assessments: sessionStartedAtRef.current
+      ? assessments.filter((assessment) => new Date(assessment.timestamp).getTime() >= new Date(sessionStartedAtRef.current || '').getTime())
+      : assessments,
     camera: {
       active: isActive,
       mirrored: isMirrored,
@@ -757,7 +772,10 @@ export function KimVisionPanel() {
     generatedAt: new Date().toISOString(),
     gpuServerStatus,
     modelStatus,
-    sceneEvents,
+    sceneEvents: sessionStartedAtRef.current
+      ? sceneEvents.filter((event) => new Date(event.timestamp).getTime() >= new Date(sessionStartedAtRef.current || '').getTime())
+      : sceneEvents,
+    sessionStartedAt: sessionStartedAtRef.current,
     sceneMemory,
     settings: {
       ambientChangeThreshold,
@@ -1262,6 +1280,25 @@ export function KimVisionPanel() {
   useEffect(() => {
     sceneEventsRef.current = sceneEvents
   }, [sceneEvents])
+
+  useEffect(() => {
+    const active = enabled && isActive
+    if (active && !sessionActiveRef.current) {
+      const timestamp = new Date().toISOString()
+      sessionStartedAtRef.current = timestamp
+      interestingFrameRef.current = null
+      previousFrameRef.current = null
+      lastBrightnessRef.current = null
+      lastGateCheckAtRef.current = 0
+      lastMeaningfulChangeAtRef.current = null
+      motionTrailRef.current = 0
+      setAmbientGate({
+        ...defaultAmbientGateState(),
+        threshold: ambientChangeThreshold,
+      })
+    }
+    sessionActiveRef.current = active
+  }, [ambientChangeThreshold, enabled, isActive])
 
   useEffect(() => {
     if (!enabled || !isActive) return undefined
