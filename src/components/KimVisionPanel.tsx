@@ -364,6 +364,12 @@ function quietCheckNote(brightness: number, motion: number | null, memory: Visio
   return `Check logged: ${localNote(brightness, motion)} ${memoryText}`
 }
 
+function sensorMotionLabel(motion: number, signal: BaselineSignal) {
+  if (motion >= 18) return 'strong movement'
+  if (signal.ready && signal.motionDelta >= 7) return 'baseline-breaking movement'
+  return 'movement'
+}
+
 function addUniqueEntity(entities: string[], entity: string) {
   return entities.includes(entity) ? entities : [entity, ...entities].slice(0, 8)
 }
@@ -898,6 +904,24 @@ export function KimVisionPanel() {
     }
   }, [visionMode])
 
+  const recordSettledScene = useCallback((motion: number | null, region: MotionRegion, timestamp: string, reason = 'movement settled back to baseline') => {
+    if (motion == null || motion > 2) return false
+    if (!['moving', 'object_in_hand', 'standing'].includes(sceneMemoryRef.current.activity)) return false
+    const detail = sceneMemoryRef.current.activity === 'standing'
+      ? 'Real-time sensor: standing movement settled; treating posture as likely seated.'
+      : sceneMemoryRef.current.activity === 'object_in_hand'
+        ? 'Real-time sensor: held-object movement settled; treating posture as likely seated.'
+        : `Real-time sensor: ${reason}.`
+    addSceneEvent({
+      detail,
+      motion,
+      region,
+      timestamp,
+      type: 'settled',
+    })
+    return true
+  }, [addSceneEvent])
+
   const refreshGpuServerHealth = useCallback(async () => {
     setGpuServerStatus('Checking local GPU server...')
     try {
@@ -962,6 +986,7 @@ export function KimVisionPanel() {
       }
 
       if (!forceAssessment && gateChangeScore != null && gateChangeScore < ambientChangeThreshold) {
+        recordSettledScene(motion, region, timestamp, 'quiet gate saw the room settle')
         setAmbientGate({
           baselineAgeSeconds,
           changeScore: gateChangeScore,
@@ -1022,7 +1047,7 @@ export function KimVisionPanel() {
       if (!forceAssessment && sceneEventOpen && motion != null) {
         if (motion >= 18 || (signal.ready && signal.motionDelta >= 7)) {
           addSceneEvent({
-            detail: `Real-time sensor: strong movement detected in the ${region} region.`,
+            detail: `Real-time sensor: ${sensorMotionLabel(motion, signal)} detected in the ${region} region.`,
             motion,
             region,
             timestamp,
@@ -1036,21 +1061,8 @@ export function KimVisionPanel() {
             timestamp,
             type: 'motion',
           })
-        } else if (
-          motion <= 2
-          && ['moving', 'object_in_hand', 'standing'].includes(sceneMemoryRef.current.activity)
-        ) {
-          addSceneEvent({
-            detail: sceneMemoryRef.current.activity === 'standing'
-              ? 'Real-time sensor: standing movement settled; treating posture as likely seated.'
-              : sceneMemoryRef.current.activity === 'object_in_hand'
-                ? 'Real-time sensor: held-object movement settled; treating posture as likely seated.'
-                : 'Real-time sensor: movement settled back to baseline.',
-            motion,
-            region,
-            timestamp,
-            type: 'settled',
-          })
+        } else if (motion <= 2) {
+          recordSettledScene(motion, region, timestamp)
         }
       }
 
@@ -1242,7 +1254,7 @@ export function KimVisionPanel() {
       isSendingRef.current = false
       setIsSending(false)
     }
-  }, [addSceneEvent, ambientChangeThreshold, cooldownSeconds, deepAutoEnabled, detectorEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, visionMode])
+  }, [addSceneEvent, ambientChangeThreshold, cooldownSeconds, deepAutoEnabled, detectorEnabled, endpoint, gpuEndpoint, isMirrored, modelId, motionThreshold, recordSettledScene, visionMode])
 
   useEffect(() => {
     if (videoRef.current) attachVideo(videoRef.current)
