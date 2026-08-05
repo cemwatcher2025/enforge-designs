@@ -101,6 +101,8 @@ type KimVisionDebugPacket = {
     ambientGateIntervalSeconds: number
     ambientStartupQuietSeconds: number
     cooldownSeconds: number
+    deepAssessmentMotionFloor: number
+    deepAssessmentStructuralChangeFloor: number
     deepAutoEnabled: boolean
     frameInterval: number
     gpuEndpoint: string
@@ -146,6 +148,8 @@ const defaultAmbientChangeThreshold = 5
 const ambientStartupQuietSeconds = 60
 const ambientStartupDeepChangeThreshold = 35
 const ambientStartupDeepMotionThreshold = 28
+const deepAssessmentMotionFloor = 7
+const deepAssessmentStructuralChangeFloor = 12
 const defaultCooldownSeconds = 45
 const motionProbeFrames = 10
 const bufferedFrameWindowMs = 3000
@@ -806,6 +810,8 @@ export function KimVisionPanel() {
       ambientGateIntervalSeconds,
       ambientStartupQuietSeconds,
       cooldownSeconds,
+      deepAssessmentMotionFloor,
+      deepAssessmentStructuralChangeFloor,
       deepAutoEnabled,
       frameInterval,
       gpuEndpoint,
@@ -1046,7 +1052,10 @@ export function KimVisionPanel() {
       const signal = baselineSignal(memoryRef.current, brightness, motion, brightnessDelta)
       const meaningfulMotion = motion != null && motion >= motionThreshold
       const meaningfulLightChange = brightnessDelta >= 14
-      const learnedChange = signal.learnedMotionShift || signal.learnedBrightnessShift
+      const learnedMotionWorthyOfAssessment = signal.learnedMotionShift
+        && motion != null
+        && motion >= deepAssessmentMotionFloor
+      const learnedChange = learnedMotionWorthyOfAssessment || signal.learnedBrightnessShift
       const mildLearnedMotion = signal.ready
         && motion != null
         && motion >= Math.max((memoryRef.current.averageMotion ?? 0) + 3, 5)
@@ -1112,9 +1121,14 @@ export function KimVisionPanel() {
           })
       }
       const sustainedLearnedMotion = signal.ready && motionTrailRef.current >= 2
+      const sustainedLearnedMotionWorthyOfAssessment = sustainedLearnedMotion
+        && motion != null
+        && motion >= deepAssessmentMotionFloor
       const strongLearnedMotion = signal.ready
         && motion != null
         && motion >= Math.max((memoryRef.current.averageMotion ?? 0) + 8, 12)
+      const structuralSceneChange = gateChangeScore != null
+        && gateChangeScore >= deepAssessmentStructuralChangeFloor
       const triggerReason = triggerFromSignals(forceAssessment, motion, brightnessDelta, signal, motionThreshold)
       const startupQuietActive = !forceAssessment
         && sessionAgeSeconds < ambientStartupQuietSeconds
@@ -1124,7 +1138,14 @@ export function KimVisionPanel() {
           || (motion != null && motion < ambientStartupDeepMotionThreshold)
         )
       const shouldAssess = forceAssessment
-        || (!startupQuietActive && cooldownOpen && (meaningfulMotion || meaningfulLightChange || learnedChange || sustainedLearnedMotion || strongLearnedMotion))
+        || (!startupQuietActive && cooldownOpen && (
+          meaningfulMotion
+          || meaningfulLightChange
+          || learnedChange
+          || sustainedLearnedMotionWorthyOfAssessment
+          || strongLearnedMotion
+          || structuralSceneChange
+        ))
 
       if (!shouldAssess) {
         const nextMemory = updateVisionMemory(memoryRef.current, brightness, motion, timestamp)
