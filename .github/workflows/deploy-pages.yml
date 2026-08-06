@@ -39,6 +39,8 @@ jobs:
         env:
           GITHUB_PAGES: "true"
           CUSTOM_DOMAIN: "true"
+          VITE_BUILD_SHA: ${{ github.sha }}
+          VITE_BUILD_TIME: ${{ github.run_id }}
           VITE_COMMAND_CENTER_PROXY_URL: ${{ secrets.VITE_COMMAND_CENTER_PROXY_URL }}
           VITE_USAGE_LOG_ENDPOINT: ${{ secrets.VITE_USAGE_LOG_ENDPOINT }}
 

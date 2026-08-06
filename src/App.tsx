@@ -8,6 +8,7 @@ import { MinistryPanel } from './components/MinistryPanel'
 import { Sandbox3D } from './components/Sandbox3D'
 import { defaultAdminConfig, normalizeAdminConfig, type Accent, type AdminConfig, type PanelId, type ServiceState } from './config'
 import { connectedStatus, disconnectedStatus, fetchRemoteAdminConfig, saveRemoteAdminConfig, type AdminApiStatus } from './utils/adminConfigApi'
+import { shortBuildSha } from './utils/buildInfo'
 import { fetchDashboardData, type DashboardData } from './utils/commandCenterApi'
 import { logUsage, readUsageLog } from './utils/usageTracking'
 
@@ -578,6 +579,7 @@ function App() {
           <span className="launch-label">Deployment</span>
           <strong>enforgedesigns.com</strong>
           <span>GitHub Pages · Custom domain · Phase 5</span>
+          <small className="build-badge">Build {shortBuildSha()}</small>
           <button className="gear-button" aria-label="Open admin panel" onClick={openAdmin} type="button">⚙</button>
         </div>
       </header>

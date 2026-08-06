@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCamera } from '../context/cameraContext'
+import { buildSha, buildTime } from '../utils/buildInfo'
 import { assessWithMoondream, defaultMoondreamModelId, hasBrowserMoondreamSupport, loadMoondream, type MoondreamStatus } from '../utils/moondreamVision'
 import { detectKimObjects, loadKimObjectDetector, summarizeKimDetections, type KimDetection, type KimDetectorStatus } from '../utils/kimObjectDetector'
 
@@ -88,6 +89,10 @@ type RecentDetectorContext = {
 
 type KimVisionDebugPacket = {
   ambientGate: AmbientGateState
+  appBuild: {
+    sha: string
+    time: string
+  }
   assessments: VisionAssessment[]
   camera: {
     active: boolean
@@ -860,6 +865,10 @@ export function KimVisionPanel() {
 
   const buildDebugPacket = useCallback((noteOverride = debugNote): KimVisionDebugPacket => ({
     ambientGate,
+    appBuild: {
+      sha: buildSha,
+      time: buildTime,
+    },
     assessments: sessionStartedAtRef.current
       ? assessments.filter((assessment) => new Date(assessment.timestamp).getTime() >= new Date(sessionStartedAtRef.current || '').getTime())
       : assessments,
