@@ -166,6 +166,7 @@ const ambientStartupDeepMotionThreshold = 28
 const deepAssessmentMotionFloor = 7
 const deepAssessmentStructuralChangeFloor = 12
 const defaultCooldownSeconds = 45
+const objectAssessmentCooldownMs = 12000
 const motionProbeFrames = 10
 const bufferedFrameWindowMs = 3000
 const bufferedMotionFloor = 5
@@ -627,12 +628,21 @@ function recentDetectorObjectObservation(
   return `${fallback} Local detector saw ${article} ${label}; KIM treated the clothing/detail caption as stale and kept the object change instead.`
 }
 
-function selectBufferedMotionFrame(frames: BufferedVisionFrame[], now: number) {
-  return frames.find((frame) => (
+function selectBufferedMotionFrame(frames: BufferedVisionFrame[], now: number, preferredScope?: MotionScope) {
+  const eligibleFrames = frames.filter((frame) => (
     now - frame.timeMs <= bufferedFrameWindowMs
     && frame.motion != null
     && frame.motion >= bufferedMotionFloor
-  )) || null
+  ))
+  if (preferredScope) {
+    const scopedFrame = eligibleFrames.findLast((frame) => frame.motionScope === preferredScope)
+    if (scopedFrame) return scopedFrame
+  }
+  return eligibleFrames.findLast((frame) => frame.motionScope === 'fine_object_motion')
+    || eligibleFrames.findLast((frame) => frame.motionScope === 'posture_motion')
+    || eligibleFrames.findLast((frame) => frame.motionScope === 'room_motion')
+    || eligibleFrames.at(-1)
+    || null
 }
 
 function updateVisionObservation(memory: VisionMemory, timestamp: string, deepObservation?: string) {
@@ -799,6 +809,7 @@ export function KimVisionPanel() {
   const interestingFrameRef = useRef<Uint8ClampedArray | null>(null)
   const lastBrightnessRef = useRef<number | null>(null)
   const lastAssessmentAtRef = useRef(0)
+  const lastObjectAssessmentAtRef = useRef(0)
   const lastDetectorAtRef = useRef(0)
   const lastGateCheckAtRef = useRef(0)
   const lastMeaningfulChangeAtRef = useRef<number | null>(null)
@@ -1223,6 +1234,12 @@ export function KimVisionPanel() {
         && motion >= Math.max((memoryRef.current.averageMotion ?? 0) + 8, 12)
       const structuralSceneChange = gateChangeScore != null
         && gateChangeScore >= deepAssessmentStructuralChangeFloor
+      const objectMotionAssessmentOpen = now - lastObjectAssessmentAtRef.current >= objectAssessmentCooldownMs
+      const fineObjectMotionWorthyOfAssessment = !forceAssessment
+        && motionScope === 'fine_object_motion'
+        && objectMotionAssessmentOpen
+        && motion != null
+        && motion >= Math.max(deepAssessmentMotionFloor, (memoryRef.current.averageMotion ?? 0) + 4)
       const triggerReason = triggerFromSignals(forceAssessment, motion, brightnessDelta, signal, motionThreshold)
       const startupQuietActive = !forceAssessment
         && sessionAgeSeconds < ambientStartupQuietSeconds
@@ -1232,13 +1249,16 @@ export function KimVisionPanel() {
           || (motion != null && motion < ambientStartupDeepMotionThreshold)
         )
       const shouldAssess = forceAssessment
-        || (!startupQuietActive && cooldownOpen && (
-          meaningfulMotion
-          || meaningfulLightChange
-          || learnedChange
-          || sustainedLearnedMotionWorthyOfAssessment
-          || strongLearnedMotion
-          || structuralSceneChange
+        || (!startupQuietActive && (
+          fineObjectMotionWorthyOfAssessment
+          || (cooldownOpen && (
+            meaningfulMotion
+            || meaningfulLightChange
+            || learnedChange
+            || sustainedLearnedMotionWorthyOfAssessment
+            || strongLearnedMotion
+            || structuralSceneChange
+          ))
         ))
 
       if (!shouldAssess) {
@@ -1267,9 +1287,10 @@ export function KimVisionPanel() {
       }
 
       const assessmentTrigger = triggerReason
+        || (fineObjectMotionWorthyOfAssessment && motion != null ? `object-level motion ${motion}%` : null)
         || (sustainedLearnedMotion && motion != null ? `sustained motion ${motion}%` : trigger)
       motionTrailRef.current = 0
-      const bufferedFrame = forceAssessment ? null : selectBufferedMotionFrame(frameBufferRef.current, now)
+      const bufferedFrame = forceAssessment ? null : selectBufferedMotionFrame(frameBufferRef.current, now, fineObjectMotionWorthyOfAssessment ? 'fine_object_motion' : undefined)
       const assessmentFrame = bufferedFrame || currentFrame
       const assessmentMotionScope = assessmentFrame.motionScope
       const frameSource = bufferedFrame && bufferedFrame !== currentFrame ? 'motion-start snapshot' : 'trigger snapshot'
@@ -1341,6 +1362,9 @@ export function KimVisionPanel() {
       }
 
       lastAssessmentAtRef.current = now
+      if (assessmentMotionScope === 'fine_object_motion') {
+        lastObjectAssessmentAtRef.current = now
+      }
       const nextMemory = updateVisionObservation(memoryRef.current, assessmentFrame.timestamp, runDeepAssessment ? note : undefined)
       memoryRef.current = nextMemory
       if (runDeepAssessment) {
