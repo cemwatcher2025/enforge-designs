@@ -10,4 +10,4 @@ Files under `polyhaven/` were downloaded from Poly Haven's public model API in 1
 - License: CC0
 - Local manifest: `polyhaven/manifest.json`
 
-These assets are intentionally stored under `public/` so GitHub Pages can serve them directly without adding them to the Vite JavaScript bundle.
+These assets are intentionally stored outside `public/` so GitHub Pages does not publish the full model library on every dashboard deploy. Copy a curated subset back under `public/world-assets/` only when a deployed scene needs those exact local files.

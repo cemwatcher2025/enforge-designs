@@ -18,6 +18,8 @@ local-vision-server/__pycache__/
 *.local
 public/world-assets/polyhaven/fir_tree_01/
 public/world-assets/polyhaven/fir_sapling_medium/
+asset-library/world-assets/polyhaven/fir_tree_01/
+asset-library/world-assets/polyhaven/fir_sapling_medium/
 
 # Editor directories and files
 .vscode/*
