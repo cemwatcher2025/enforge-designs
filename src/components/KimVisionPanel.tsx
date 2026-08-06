@@ -11,6 +11,7 @@ type VisionAssessment = {
   kind?: 'check' | 'event' | 'observation' | 'notice' | 'error'
   mode: VisionMode
   motion: number | null
+  motionScope?: MotionScope
   note: string
   timestamp: string
   trigger: string
@@ -46,16 +47,19 @@ type BufferedVisionFrame = {
   height: number
   imageDataUrl: string
   motion: number | null
+  motionScope: MotionScope
   timestamp: string
   timeMs: number
   width: number
 }
 
 type MotionRegion = 'none' | 'left' | 'center' | 'right' | 'upper' | 'lower' | 'wide'
+type MotionScope = 'none' | 'fine_object_motion' | 'posture_motion' | 'room_motion' | 'settled' | 'unknown'
 
 type SceneEvent = {
   detail: string
   motion: number | null
+  motionScope: MotionScope
   region: MotionRegion
   timestamp: string
   type: 'detector' | 'entered' | 'left' | 'motion' | 'object' | 'presence' | 'settled' | 'unknown'
@@ -67,6 +71,7 @@ type SceneMemory = {
   entities: string[]
   lastEventAt: string | null
   motionRegion: MotionRegion
+  motionScope: MotionScope
   presence: 'present' | 'away' | 'uncertain'
   summary: string
 }
@@ -304,6 +309,7 @@ function defaultSceneMemory(): SceneMemory {
     entities: [],
     lastEventAt: null,
     motionRegion: 'none',
+    motionScope: 'unknown',
     presence: 'uncertain',
     summary: 'Learning the room.',
   }
@@ -312,7 +318,9 @@ function defaultSceneMemory(): SceneMemory {
 function loadSceneMemory() {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(sceneMemoryStorageKey) || 'null') as SceneMemory | null
-    return parsed && Array.isArray(parsed.entities) ? parsed : defaultSceneMemory()
+    return parsed && Array.isArray(parsed.entities)
+      ? { ...defaultSceneMemory(), ...parsed, motionScope: parsed.motionScope || 'unknown' }
+      : defaultSceneMemory()
   } catch {
     return defaultSceneMemory()
   }
@@ -321,7 +329,9 @@ function loadSceneMemory() {
 function loadSceneEvents() {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(sceneEventsStorageKey) || '[]') as SceneEvent[]
-    return Array.isArray(parsed) ? parsed.slice(0, sceneEventHistoryLimit) : []
+    return Array.isArray(parsed)
+      ? parsed.slice(0, sceneEventHistoryLimit).map((event) => ({ ...event, motionScope: event.motionScope || 'unknown' }))
+      : []
   } catch {
     return []
   }
@@ -368,7 +378,33 @@ function quietCheckNote(brightness: number, motion: number | null, memory: Visio
   return `Check logged: ${localNote(brightness, motion)} ${memoryText}`
 }
 
-function sensorMotionLabel(motion: number, signal: BaselineSignal) {
+function classifyMotionScope(
+  motion: number | null,
+  region: MotionRegion,
+  gateChangeScore: number | null,
+  currentActivity: SceneMemory['activity'],
+): MotionScope {
+  if (motion == null) return 'none'
+  if (motion <= 5) return 'settled'
+  const structuralChange = gateChangeScore ?? 0
+  if (region === 'wide' && structuralChange >= deepAssessmentStructuralChangeFloor) return 'room_motion'
+  if (motion >= 35 && structuralChange < deepAssessmentStructuralChangeFloor) return 'fine_object_motion'
+  if (currentActivity === 'object_in_hand' && structuralChange < deepAssessmentStructuralChangeFloor && motion < 60) return 'fine_object_motion'
+  if (region === 'upper' || region === 'lower' || region === 'center') {
+    return motion >= 18 ? 'posture_motion' : 'fine_object_motion'
+  }
+  if (region === 'wide') return motion >= 60 ? 'room_motion' : 'posture_motion'
+  return motion >= 18 ? 'posture_motion' : 'fine_object_motion'
+}
+
+function motionScopeLabel(scope: MotionScope) {
+  return scope.replace(/_/g, ' ')
+}
+
+function sensorMotionLabel(motion: number, signal: BaselineSignal, motionScope: MotionScope) {
+  if (motionScope === 'fine_object_motion') return 'object-level movement'
+  if (motionScope === 'posture_motion') return 'posture movement'
+  if (motionScope === 'room_motion') return 'room-level movement'
   if (motion >= 18) return 'strong movement'
   if (signal.ready && signal.motionDelta >= 7) return 'baseline-breaking movement'
   return 'movement'
@@ -378,7 +414,8 @@ function activityFromSceneEvent(event: SceneEvent, currentActivity: SceneMemory[
   if (event.type === 'settled') return settleActivityFromMemory(currentActivity)
   if (event.type === 'object') return 'object_in_hand'
   if (event.type !== 'motion') return currentActivity
-  if ((event.motion ?? 0) >= 18 || event.region === 'wide') return 'moving'
+  if (event.motionScope === 'room_motion') return 'moving'
+  if (event.motionScope === 'posture_motion' && (event.motion ?? 0) >= 18) return 'moving'
   return currentActivity
 }
 
@@ -386,9 +423,9 @@ function addUniqueEntity(entities: string[], entity: string) {
   return entities.includes(entity) ? entities : [entity, ...entities].slice(0, 8)
 }
 
-function sceneMemoryFromObservation(memory: SceneMemory, note: string, timestamp: string, region: MotionRegion, evidence: SceneMemoryEvidence): SceneMemory {
+function sceneMemoryFromObservation(memory: SceneMemory, note: string, timestamp: string, region: MotionRegion, motionScope: MotionScope, evidence: SceneMemoryEvidence): SceneMemory {
   const normalized = note.toLowerCase()
-  let next = { ...memory, lastEventAt: timestamp, motionRegion: region }
+  let next = { ...memory, lastEventAt: timestamp, motionRegion: region, motionScope }
   const motion = evidence.motion ?? 0
   const postureMotionConfirmed = !evidence.forceAssessment && (
     (motion >= 5 && region !== 'lower')
@@ -427,12 +464,12 @@ function summarizeScene(memory: SceneMemory) {
       ? 'watching for context'
       : memory.activity
   const entities = memory.entities.length ? `; known: ${memory.entities.join(', ')}` : ''
-  return `${presence}; ${activity}; motion ${memory.motionRegion}${entities}.`
+  return `${presence}; ${activity}; motion ${memory.motionRegion}; scope ${motionScopeLabel(memory.motionScope)}${entities}.`
 }
 
-function sceneMemoryFromDetections(memory: SceneMemory, detections: KimDetection[], timestamp: string, region: MotionRegion, motion: number | null): SceneMemory {
+function sceneMemoryFromDetections(memory: SceneMemory, detections: KimDetection[], timestamp: string, region: MotionRegion, motionScope: MotionScope, motion: number | null): SceneMemory {
   const summary = summarizeKimDetections(detections)
-  let next = { ...memory, lastEventAt: timestamp, motionRegion: region }
+  let next = { ...memory, lastEventAt: timestamp, motionRegion: region, motionScope }
   if (summary.personVisible) {
     next = { ...next, confidence: Math.max(next.confidence, 78), presence: 'present' }
   }
@@ -902,6 +939,7 @@ export function KimVisionPanel() {
       confidence: Math.max(sceneMemoryRef.current.confidence, event.type === 'settled' ? 54 : 62),
       lastEventAt: event.timestamp,
       motionRegion: event.region,
+      motionScope: event.motionScope,
       presence: event.type === 'left' ? 'away' : event.type === 'entered' || event.type === 'presence' ? 'present' : sceneMemoryRef.current.presence,
     }
     nextMemory.summary = summarizeScene(nextMemory)
@@ -915,6 +953,7 @@ export function KimVisionPanel() {
         kind: 'event',
         mode: visionMode,
         motion: event.motion,
+        motionScope: event.motionScope,
         note: event.detail,
         timestamp: event.timestamp,
         trigger: `sensor ${event.type}`,
@@ -933,6 +972,7 @@ export function KimVisionPanel() {
     addSceneEvent({
       detail,
       motion,
+      motionScope: 'settled',
       region,
       timestamp,
       type: 'settled',
@@ -987,6 +1027,7 @@ export function KimVisionPanel() {
       const baselineAgeSeconds = lastMeaningfulChangeAtRef.current == null
         ? 0
         : Math.round((now - lastMeaningfulChangeAtRef.current) / 1000)
+      const motionScope = classifyMotionScope(motion, region, gateChangeScore, sceneMemoryRef.current.activity)
 
       if (!forceAssessment && gateChangeScore == null) {
         interestingFrameRef.current = new Uint8ClampedArray(image.data)
@@ -1043,6 +1084,7 @@ export function KimVisionPanel() {
         height,
         imageDataUrl,
         motion,
+        motionScope,
         timestamp,
         timeMs: now,
         width,
@@ -1068,8 +1110,9 @@ export function KimVisionPanel() {
       if (!forceAssessment && sceneEventOpen && motion != null) {
         if (motion >= 18 || (signal.ready && signal.motionDelta >= 7)) {
           addSceneEvent({
-            detail: `Real-time sensor: ${sensorMotionLabel(motion, signal)} detected in the ${region} region.`,
+            detail: `Real-time sensor: ${sensorMotionLabel(motion, signal, motionScope)} detected in the ${region} region.`,
             motion,
+            motionScope,
             region,
             timestamp,
             type: 'motion',
@@ -1078,6 +1121,7 @@ export function KimVisionPanel() {
           addSceneEvent({
             detail: `Real-time sensor: sustained mild movement is building in the ${region} region.`,
             motion,
+            motionScope,
             region,
             timestamp,
             type: 'motion',
@@ -1102,13 +1146,14 @@ export function KimVisionPanel() {
             const detectionSummary = summarizeKimDetections(detections)
             const labels = detectionSummary.labels.slice(0, 5)
             const previousSceneSummary = sceneMemoryRef.current.summary
-            const nextSceneMemory = sceneMemoryFromDetections(sceneMemoryRef.current, detections, timestamp, region, motion)
+            const nextSceneMemory = sceneMemoryFromDetections(sceneMemoryRef.current, detections, timestamp, region, motionScope, motion)
             sceneMemoryRef.current = nextSceneMemory
             setSceneMemory(nextSceneMemory)
             if (labels.length && nextSceneMemory.summary !== previousSceneSummary) {
               addSceneEvent({
                 detail: `Detector saw ${labels.join(', ')}.`,
                 motion,
+                motionScope,
                 region,
                 timestamp,
                 type: 'detector',
@@ -1161,6 +1206,7 @@ export function KimVisionPanel() {
           kind: 'check',
           mode: visionMode,
           motion,
+          motionScope,
           note: quietNote,
           timestamp,
           trigger: 'routine check',
@@ -1178,6 +1224,7 @@ export function KimVisionPanel() {
       motionTrailRef.current = 0
       const bufferedFrame = forceAssessment ? null : selectBufferedMotionFrame(frameBufferRef.current, now)
       const assessmentFrame = bufferedFrame || currentFrame
+      const assessmentMotionScope = assessmentFrame.motionScope
       const frameSource = bufferedFrame && bufferedFrame !== currentFrame ? 'motion-start snapshot' : 'trigger snapshot'
       note = localNote(assessmentFrame.brightness, assessmentFrame.motion)
       const runDeepAssessment = forceAssessment || deepAutoEnabled
@@ -1201,6 +1248,7 @@ export function KimVisionPanel() {
             frameSource,
             height: assessmentFrame.height,
             motion: assessmentFrame.motion,
+            motionScope: assessmentMotionScope,
             timestamp: assessmentFrame.timestamp,
             width: assessmentFrame.width,
           })
@@ -1229,6 +1277,7 @@ export function KimVisionPanel() {
           frameSource,
           height: assessmentFrame.height,
           motion: assessmentFrame.motion,
+          motionScope: assessmentMotionScope,
           timestamp: assessmentFrame.timestamp,
           width: assessmentFrame.width,
         })
@@ -1240,7 +1289,7 @@ export function KimVisionPanel() {
       memoryRef.current = nextMemory
       if (runDeepAssessment) {
         const previousSceneSummary = sceneMemoryRef.current.summary
-        const nextSceneMemory = sceneMemoryFromObservation(sceneMemoryRef.current, note, assessmentFrame.timestamp, region, {
+        const nextSceneMemory = sceneMemoryFromObservation(sceneMemoryRef.current, note, assessmentFrame.timestamp, region, assessmentMotionScope, {
           forceAssessment,
           motion: assessmentFrame.motion,
         })
@@ -1250,6 +1299,7 @@ export function KimVisionPanel() {
           addSceneEvent({
             detail: `Scene memory updated: ${nextSceneMemory.summary}`,
             motion: assessmentFrame.motion,
+            motionScope: assessmentMotionScope,
             region,
             timestamp: assessmentFrame.timestamp,
             type: nextSceneMemory.activity === 'object_in_hand' ? 'object' : 'presence',
@@ -1258,6 +1308,7 @@ export function KimVisionPanel() {
           addSceneEvent({
             detail: 'Manual caption suggested standing, but scene memory held posture because the live sensor did not confirm movement.',
             motion: assessmentFrame.motion,
+            motionScope: assessmentMotionScope,
             region,
             timestamp: assessmentFrame.timestamp,
             type: 'unknown',
@@ -1270,6 +1321,7 @@ export function KimVisionPanel() {
         kind: runDeepAssessment ? 'observation' : 'notice',
         mode: visionMode,
         motion: assessmentFrame.motion,
+        motionScope: assessmentMotionScope,
         note,
         timestamp: assessmentFrame.timestamp,
         trigger: bufferedFrame && bufferedFrame !== currentFrame ? `${assessmentTrigger} · buffered` : assessmentTrigger,
@@ -1584,7 +1636,7 @@ export function KimVisionPanel() {
         <div>
           <p className="eyebrow">Situational Awareness V2</p>
           <strong>{sceneMemory.summary}</strong>
-          <span>Confidence {sceneMemory.confidence}% · Last motion region {sceneMemory.motionRegion} · Detector {detectorEnabled ? detectorStatus.stage : 'off'}</span>
+          <span>Confidence {sceneMemory.confidence}% · Last motion region {sceneMemory.motionRegion} · Scope {motionScopeLabel(sceneMemory.motionScope)} · Detector {detectorEnabled ? detectorStatus.stage : 'off'}</span>
         </div>
         <div className="kim-scene-metrics">
           <span data-state={sceneMemory.presence}>{sceneMemory.presence}</span>
@@ -1602,6 +1654,8 @@ export function KimVisionPanel() {
                   {new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(event.timestamp))}
                   {' · '}
                   {event.detail}
+                  {' · '}
+                  {motionScopeLabel(event.motionScope)}
                 </span>
               ))}
             </>
@@ -1643,6 +1697,7 @@ export function KimVisionPanel() {
               {assessment.kind === 'event' ? 'Sensor event' : `Light ${assessment.brightness}%`}
               {' · '}
               Motion {assessment.motion == null ? 'baseline' : `${assessment.motion}%`}
+              {assessment.motionScope ? ` · ${motionScopeLabel(assessment.motionScope)}` : ''}
             </span>
           </div>
         ))}
