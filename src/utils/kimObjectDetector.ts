@@ -48,6 +48,18 @@ export function summarizeKimDetections(detections: KimDetection[]) {
   const useful = detections
     .filter((detection) => detection.score >= 0.5)
     .sort((a, b) => b.score - a.score)
+  const heldObjectClasses = [
+    'bottle',
+    'cell phone',
+    'cup',
+    'fork',
+    'keyboard',
+    'mouse',
+    'remote',
+    'scissors',
+    'sports ball',
+    'toothbrush',
+  ]
 
   const counts = useful.reduce<Record<string, number>>((current, detection) => {
     current[detection.className] = (current[detection.className] || 0) + 1
@@ -60,17 +72,7 @@ export function summarizeKimDetections(detections: KimDetection[]) {
     personVisible: Boolean(counts.person),
     dogVisible: Boolean(counts.dog),
     chairVisible: Boolean(counts.chair),
-    heldObjectLikely: useful.some((detection) => [
-      'bottle',
-      'cell phone',
-      'cup',
-      'fork',
-      'keyboard',
-      'mouse',
-      'remote',
-      'scissors',
-      'sports ball',
-      'toothbrush',
-    ].includes(detection.className)),
+    heldObjectLabels: Object.keys(counts).filter((label) => heldObjectClasses.includes(label)),
+    heldObjectLikely: useful.some((detection) => heldObjectClasses.includes(detection.className)),
   }
 }

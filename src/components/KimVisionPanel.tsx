@@ -81,6 +81,11 @@ type SceneMemoryEvidence = {
   motion: number | null
 }
 
+type RecentDetectorContext = {
+  heldObjectLabels: string[]
+  timestampMs: number
+}
+
 type KimVisionDebugPacket = {
   ambientGate: AmbientGateState
   assessments: VisionAssessment[]
@@ -162,6 +167,7 @@ const bufferedMotionFloor = 5
 const sceneEventCooldownMs = 2500
 const detectorProbeFrames = 45
 const detectorEventCooldownMs = 5000
+const detectorContextWindowMs = 18000
 const sceneEventHistoryLimit = 60
 const sceneEventDisplayLimit = 16
 
@@ -599,6 +605,23 @@ function formatDuration(durationMs?: number) {
   return `${(durationMs / 1000).toFixed(1)}s`
 }
 
+function recentDetectorObjectObservation(
+  note: string,
+  fallback: string,
+  context: RecentDetectorContext | null,
+  now: number,
+) {
+  if (!context || now - context.timestampMs > detectorContextWindowMs || context.heldObjectLabels.length === 0) return null
+  const normalized = note.toLowerCase()
+  const modelAlreadySawObject = /\b(holding|cup|mug|phone|remote|bottle|fork|object)\b/.test(normalized)
+  if (modelAlreadySawObject) return null
+  const staleVisualDetail = /\b(shirt|paint|splatters?|clothing|face|expression|room|chair|bed|fan)\b/.test(normalized)
+  if (!staleVisualDetail) return null
+  const label = context.heldObjectLabels[0]
+  const article = /^[aeiou]/i.test(label) ? 'an' : 'a'
+  return `${fallback} Local detector saw ${article} ${label}; KIM treated the clothing/detail caption as stale and kept the object change instead.`
+}
+
 function selectBufferedMotionFrame(frames: BufferedVisionFrame[], now: number) {
   return frames.find((frame) => (
     now - frame.timeMs <= bufferedFrameWindowMs
@@ -654,6 +677,12 @@ function cleanModelObservation(note: string, fallback: string) {
     'surprised',
     'sunset',
     'blue shirt',
+    'paint on his shirt',
+    'paint on her shirt',
+    'paint on their shirt',
+    'paint splatters on his shirt',
+    'paint splatters on her shirt',
+    'paint splatters on their shirt',
     'black leather chair',
     'living room with a fan',
   ]
@@ -698,6 +727,8 @@ function cleanModelObservation(note: string, fallback: string) {
       .replace(/\s+in a blue shirt and tie/gi, '')
       .replace(/\s+in a blue shirt/gi, '')
       .replace(/\s+wearing a blue shirt/gi, '')
+      .replace(/\s+with paint splatters on (his|her|their) shirt/gi, '')
+      .replace(/\s+with paint on (his|her|their) shirt/gi, '')
       .replace(/\s+with a sunset in the background/gi, '')
       .replace(/\s+with a fan on (his|her|their) head/gi, '')
       .replace(/\s+and looking surprised/gi, '')
@@ -775,6 +806,7 @@ export function KimVisionPanel() {
   const frameCountRef = useRef(0)
   const motionTrailRef = useRef(0)
   const frameBufferRef = useRef<BufferedVisionFrame[]>([])
+  const recentDetectorContextRef = useRef<RecentDetectorContext | null>(null)
   const isSendingRef = useRef(false)
   const [enabled, setEnabled] = useState(false)
   const [frameInterval] = useState(loadFrameInterval)
@@ -1145,6 +1177,12 @@ export function KimVisionPanel() {
           .then((detections) => {
             const detectionSummary = summarizeKimDetections(detections)
             const labels = detectionSummary.labels.slice(0, 5)
+            if (detectionSummary.heldObjectLabels.length > 0) {
+              recentDetectorContextRef.current = {
+                heldObjectLabels: detectionSummary.heldObjectLabels,
+                timestampMs: Date.now(),
+              }
+            }
             const previousSceneSummary = sceneMemoryRef.current.summary
             const nextSceneMemory = sceneMemoryFromDetections(sceneMemoryRef.current, detections, timestamp, region, motionScope, motion)
             sceneMemoryRef.current = nextSceneMemory
@@ -1282,6 +1320,15 @@ export function KimVisionPanel() {
           width: assessmentFrame.width,
         })
         note = cleanModelObservation(note, localNote(assessmentFrame.brightness, assessmentFrame.motion))
+      }
+
+      if (runDeepAssessment) {
+        note = recentDetectorObjectObservation(
+          note,
+          localNote(assessmentFrame.brightness, assessmentFrame.motion),
+          recentDetectorContextRef.current,
+          Date.now(),
+        ) || note
       }
 
       lastAssessmentAtRef.current = now
